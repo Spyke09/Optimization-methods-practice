@@ -1,4 +1,4 @@
-import ednonds_karp
+import flow_finder
 import network_graph
 import visualization
 

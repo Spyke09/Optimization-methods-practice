@@ -7,12 +7,12 @@ from network_graph import ResidualNetwork, EdgeId, EdgeType
 
 class MaximumFlowFinder:
     @staticmethod
-    def find(network: network_graph.SimpleNetwork) -> None:
+    def edmonds_karp(network: network_graph.SimpleNetwork) -> None:
         r_network = network_graph.ResidualNetwork()
         r_network.setup(network)
 
         while True:
-            bfs_edges, bfs_types = algo.BFS.find_minimal_way(r_network)
+            bfs_edges, bfs_types = algo.BFS.bfs_for_edmonds_karp(r_network)
 
             if not bfs_edges:
                 break
@@ -33,3 +33,13 @@ class MaximumFlowFinder:
     @staticmethod
     def __find_min_flow_in_increasing_way(network: ResidualNetwork, edges: tp.List[EdgeId], edge_types: tp.List[EdgeType]):
         return min(network.get_edge_flow(edges[i], edge_types[i]) for i in range(len(edges)))
+
+    @staticmethod
+    def dinica(network: network_graph.SimpleNetwork) -> None:
+        while True:
+            bfs = algo.BFS.bfs_for_dinica(network)
+            if network.get_sink() not in bfs:
+                break
+
+
+    def find_block_flow(self, dist: tp.List[network_graph.EdgeId]):
