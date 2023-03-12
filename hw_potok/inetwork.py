@@ -15,7 +15,7 @@ class INetwork(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_edge_flow(self, edge):
+    def get_edge_flow(self, *args):
         raise NotImplementedError
 
     @abstractmethod
@@ -27,9 +27,21 @@ class INetwork(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def edge_exist_q(self, edge) -> bool:
+    def edge_exist_q(self, *args) -> bool:
         raise NotImplementedError
 
+    @abstractmethod
     def setup(self, *args):
         raise NotImplementedError
 
+    @abstractmethod
+    def size(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_flow(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_capacities(self):
+        raise NotImplementedError
