@@ -4,10 +4,10 @@ import visualization
 
 
 def test(instance, st, fn):
-    my_mew_network = network_graph.SimpleNetwork()
-    my_mew_network.setup(instance, st, fn)
+    my_mew_network = network_graph.SimpleNetwork(instance, st, fn)
 
-    ednonds_karp.MaximumFlowFinder().find(my_mew_network)
+    ed_k = flow_finder.EdmondsKarp()
+    ed_k.find(my_mew_network)
 
     print(f"Answer is: {my_mew_network.get_network_flow()}")
     print("Network graph:\n", str(my_mew_network), "\n", sep="")

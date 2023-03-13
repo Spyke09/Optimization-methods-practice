@@ -18,15 +18,37 @@ def reverse_edge(edge_id: EdgeId) -> EdgeId:
 
 
 class SimpleNetwork(inetwork.INetwork):
-    def __init__(self):
-        self.__fan_in_nodes: tp.List[tp.List[NodeId]] = list()
-        self.__fan_out_nodes: tp.List[tp.List[NodeId]] = list()
-        self.__capacities: tp.List[tp.List[FlowValue]] = list()
-        self.__flow: tp.List[tp.List[FlowValue]] = list()
-        self.__source: NodeId = -1
-        self.__sink: NodeId = -1
-        self.__nodes_number = 0
-        self.__edges_number = 0
+
+    def __init__(
+            self,
+            capacities: tp.Dict[tp.Tuple[int, int], FlowValue],
+            source: NodeId,
+            sink: NodeId
+    ) -> None:
+        n = max([max(i) for i in capacities.keys()]) + 1
+        self.__source = source
+        self.__sink = sink
+        self.__edges_number = n
+        self.__capacities = [[0.0 for _ in range(n)] for _ in range(n)]
+        self.__flow = [[0.0 for _ in range(n)] for _ in range(n)]
+        for i in range(n):
+            for j in range(n):
+                if (i, j) in capacities:
+                    self.__capacities[i][j] = capacities[(i, j)]
+                self.__flow[i][j] = 0
+
+        node_set = set()
+        for i, j in capacities.keys():
+            node_set.add(i)
+            node_set.add(j)
+        self.__nodes_number = len(node_set)
+
+        self.__fan_in_nodes = [[] for _ in range(self.__nodes_number)]
+        self.__fan_out_nodes = [[] for _ in range(self.__nodes_number)]
+
+        for i, j in capacities.keys():
+            self.__fan_in_nodes[j].append(i)
+            self.__fan_out_nodes[i].append(j)
 
     def __repr__(self):
         res = ""
@@ -52,10 +74,10 @@ class SimpleNetwork(inetwork.INetwork):
     def get_node_fan_out(self, node_id: NodeId) -> tp.List[NodeId]:
         return self.__fan_out_nodes[node_id]
 
-    def get_edge_capacity(self, edge_id: EdgeId) -> FlowValue:
+    def get_edge_capacity(self, edge_id: EdgeId, edge_type: EdgeType = EdgeType.NORMAL) -> FlowValue:
         return self.__capacities[edge_id[0]][edge_id[1]]
 
-    def get_edge_flow(self, edge_id) -> FlowValue:
+    def get_edge_flow(self, edge_id, edge_type: EdgeType = EdgeType.NORMAL) -> FlowValue:
         return self.__flow[edge_id[0]][edge_id[1]]
 
     def set_edge_flow(self, edge_id: EdgeId, value: FlowValue) -> None:
@@ -89,37 +111,6 @@ class SimpleNetwork(inetwork.INetwork):
     def get_network_flow(self) -> FlowValue:
         return -self.get_excess_flow(self.__source)
 
-    def setup(
-            self,
-            capacities: tp.Dict[tp.Tuple[int, int], FlowValue],
-            source: NodeId,
-            sink: NodeId
-    ) -> None:
-        n = max([max(i) for i in capacities.keys()]) + 1
-        self.__source = source
-        self.__sink = sink
-        self.__edges_number = n
-        self.__capacities = [[0.0 for _ in range(n)] for _ in range(n)]
-        self.__flow = [[0.0 for _ in range(n)] for _ in range(n)]
-        for i in range(n):
-            for j in range(n):
-                if (i, j) in capacities:
-                    self.__capacities[i][j] = capacities[(i, j)]
-                self.__flow[i][j] = 0
-
-        node_set = set()
-        for i, j in capacities.keys():
-            node_set.add(i)
-            node_set.add(j)
-        self.__nodes_number = len(node_set)
-
-        self.__fan_in_nodes = [[] for _ in range(self.__nodes_number)]
-        self.__fan_out_nodes = [[] for _ in range(self.__nodes_number)]
-
-        for i, j in capacities.keys():
-            self.__fan_in_nodes[j].append(i)
-            self.__fan_out_nodes[i].append(j)
-
     def size(self):
         return self.__nodes_number
 
@@ -127,9 +118,9 @@ class SimpleNetwork(inetwork.INetwork):
         return self.__capacities
 
 
-class ResidualNetwork(inetwork.INetwork):
-    def __init__(self):
-        self.__network: tp.Optional[inetwork.INetwork] = None
+class ResidualGraph(inetwork.INetwork):
+    def __init__(self, network: SimpleNetwork):
+        self.__network: SimpleNetwork = network
 
     def get_capacities(self):
         return self.__network.get_capacities()
@@ -150,14 +141,14 @@ class ResidualNetwork(inetwork.INetwork):
         a2 = [i for i in range(self.size()) if self.edge_exist_q((node_id, i), EdgeType.INVERTED)]
         return a1 + a2
 
-    def get_edge_capacity(self, edge_id: EdgeId) -> FlowValue:
-        return self.__network.get_edge_capacity(edge_id)
+    def get_edge_capacity(self, edge_id: EdgeId, edge_type: EdgeType) -> FlowValue:
+        if edge_type == EdgeType.INVERTED:
+            return self.__network.get_edge_flow(reverse_edge(edge_id), EdgeType.NORMAL)
+        else:
+            return self.__network.get_edge_capacity(edge_id, EdgeType.NORMAL) - self.__network.get_edge_flow(edge_id, EdgeType.NORMAL)
 
     def get_edge_flow(self, edge_id: EdgeId, edge_type: EdgeType) -> FlowValue:
-        if edge_type == EdgeType.INVERTED:
-            return self.__network.get_edge_flow(reverse_edge(edge_id))
-        else:
-            return self.__network.get_edge_capacity(edge_id) - self.__network.get_edge_flow(edge_id)
+        return 0.0
 
     def get_source(self) -> NodeId:
         return self.__network.get_source()
@@ -166,7 +157,53 @@ class ResidualNetwork(inetwork.INetwork):
         return self.__network.get_sink()
 
     def edge_exist_q(self, edge_id: EdgeId, edge_type: EdgeType) -> bool:
-        return self.get_edge_flow(edge_id, edge_type) > 0
+        return self.get_edge_capacity(edge_id, edge_type) > 0
 
-    def setup(self, network: inetwork.INetwork):
-        self.__network = network
+
+class LayeredGraph(inetwork.INetwork):
+    def __init__(self, network: tp.Union[ResidualGraph, SimpleNetwork]):
+        self.__network: tp.Optional[SimpleNetwork] = None
+        self.__r_graph: tp.Optional[ResidualGraph] = None
+
+        if isinstance(network, ResidualGraph):
+            self.__network = None
+            self.__r_graph = network
+
+        elif isinstance(network, SimpleNetwork):
+            self.__network = network
+            self.__r_graph = ResidualGraph(network)
+        else:
+            raise ValueError
+
+    def get_node_fan_in(self, node):
+        pass
+
+    def get_node_fan_out(self, node):
+        pass
+
+    def get_edge_capacity(self, edge, edge_type):
+        pass
+
+    def get_edge_flow(self, edge, edge_type):
+        pass
+
+    def get_source(self):
+        pass
+
+    def get_sink(self):
+        pass
+
+    def edge_exist_q(self, edge, edge_type) -> bool:
+        pass
+
+    def setup(self, *args):
+        pass
+
+    def size(self):
+        pass
+
+    def get_flow(self):
+        pass
+
+    def get_capacities(self):
+        pass

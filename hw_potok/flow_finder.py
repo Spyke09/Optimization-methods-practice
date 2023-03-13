@@ -1,25 +1,31 @@
-import typing as tp
+from abc import ABC, abstractmethod
 
 import algo
 import network_graph
-from network_graph import ResidualNetwork, EdgeId, EdgeType
+from network_graph import ResidualGraph, EdgeType
 
 
-class MaximumFlowFinder:
-    @staticmethod
-    def edmonds_karp(network: network_graph.SimpleNetwork) -> None:
-        r_network = network_graph.ResidualNetwork()
-        r_network.setup(network)
+class IMaximumFlowFinder(ABC):
+
+    @abstractmethod
+    def find(self, network: network_graph.SimpleNetwork):
+        raise NotImplementedError
+
+
+class EdmondsKarp(IMaximumFlowFinder):
+
+    def find(self, network: network_graph.SimpleNetwork) -> None:
+        r_network = network_graph.ResidualGraph(network)
 
         while True:
-            bfs_edges, bfs_types = algo.BFS.bfs_for_edmonds_karp(r_network)
+            bfs = algo.BFS.bfs_for_edmonds_karp(r_network)
 
-            if not bfs_edges:
+            if not bfs:
                 break
 
-            inc = MaximumFlowFinder.__find_min_flow_in_increasing_way(r_network, bfs_edges, bfs_types)
+            inc = self.__find_min_flow_in_increasing_way(r_network, bfs)
 
-            for edge_id, edge_type in zip(bfs_edges, bfs_types) :
+            for edge_id, edge_type in bfs:
                 if edge_type == EdgeType.INVERTED:
                     r_edge_id = network_graph.reverse_edge(edge_id)
                     old_flow = network.get_edge_flow(r_edge_id)
@@ -28,18 +34,11 @@ class MaximumFlowFinder:
                     old_flow = network.get_edge_flow(edge_id)
                     network.set_edge_flow(edge_id, old_flow + inc)
 
-            print(network)
-
-    @staticmethod
-    def __find_min_flow_in_increasing_way(network: ResidualNetwork, edges: tp.List[EdgeId], edge_types: tp.List[EdgeType]):
-        return min(network.get_edge_flow(edges[i], edge_types[i]) for i in range(len(edges)))
-
-    @staticmethod
-    def dinica(network: network_graph.SimpleNetwork) -> None:
-        while True:
-            bfs = algo.BFS.bfs_for_dinica(network)
-            if network.get_sink() not in bfs:
-                break
+    def __find_min_flow_in_increasing_way(self, network: ResidualGraph, edges):
+        return min(network.get_edge_capacity(edges[i][0], edges[i][1]) for i in range(len(edges)))
 
 
-    def find_block_flow(self, dist: tp.List[network_graph.EdgeId]):
+class Dinica(IMaximumFlowFinder):
+    def find(self, network: network_graph.SimpleNetwork) -> None:
+        pass
+
