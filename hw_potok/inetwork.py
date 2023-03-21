@@ -1,4 +1,17 @@
+import typing as tp
 from abc import ABC, abstractmethod
+from enum import Enum
+
+
+class EdgeType(Enum):
+    NORMAL = 0
+    INVERTED = 1
+
+
+NodeId = int
+FlowValue = float
+EdgeId = tp.Tuple[NodeId, NodeId]
+Edge = tp.Tuple[EdgeId, EdgeType]
 
 
 class INetwork(ABC):
@@ -24,10 +37,6 @@ class INetwork(ABC):
 
     @abstractmethod
     def size(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_flow(self):
         raise NotImplementedError
 
     @abstractmethod

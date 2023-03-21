@@ -1,16 +1,8 @@
 import typing as tp
-from enum import Enum
 
+import algo
 import inetwork
-
-NodeId = int
-FlowValue = float
-EdgeId = tp.Tuple[NodeId, NodeId]
-
-
-class EdgeType(Enum):
-    NORMAL = 0,
-    INVERTED = 1
+from inetwork import EdgeType, NodeId, EdgeId, FlowValue, Edge
 
 
 def reverse_edge(edge_id: EdgeId) -> EdgeId:
@@ -50,7 +42,7 @@ class SimpleNetwork(inetwork.INetwork):
             self.__fan_in_nodes[j].append(i)
             self.__fan_out_nodes[i].append(j)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         res = ""
         for i in range(self.__nodes_number):
             for j in range(self.__nodes_number):
@@ -62,10 +54,12 @@ class SimpleNetwork(inetwork.INetwork):
 
         return res
 
-    def get_flow(self):
+    def get_flow(self) -> tp.List[tp.List[FlowValue]]:
         return self.__flow
 
     def edge_exist_q(self, edge_id: EdgeId, edge_type: EdgeType = EdgeType.NORMAL) -> bool:
+        if edge_type == EdgeType.INVERTED:
+            return False
         return self.__capacities[edge_id[0]][edge_id[1]] > 0
 
     def get_node_fan_in(self, node_id: NodeId) -> tp.List[NodeId]:
@@ -75,9 +69,13 @@ class SimpleNetwork(inetwork.INetwork):
         return self.__fan_out_nodes[node_id]
 
     def get_edge_capacity(self, edge_id: EdgeId, edge_type: EdgeType = EdgeType.NORMAL) -> FlowValue:
+        if edge_type == EdgeType.INVERTED:
+            return 0
         return self.__capacities[edge_id[0]][edge_id[1]]
 
     def get_edge_flow(self, edge_id, edge_type: EdgeType = EdgeType.NORMAL) -> FlowValue:
+        if edge_type == EdgeType.INVERTED:
+            return 0
         return self.__flow[edge_id[0]][edge_id[1]]
 
     def set_edge_flow(self, edge_id: EdgeId, value: FlowValue) -> None:
@@ -111,24 +109,21 @@ class SimpleNetwork(inetwork.INetwork):
     def get_network_flow(self) -> FlowValue:
         return -self.get_excess_flow(self.__source)
 
-    def size(self):
+    def size(self) -> int:
         return self.__nodes_number
 
-    def get_capacities(self):
-        return self.__capacities
+    def get_capacities(self) -> tp.List[tp.List[FlowValue]]:
+        return [[j for j in i] for i in self.__capacities]
 
 
 class ResidualGraph(inetwork.INetwork):
     def __init__(self, network: SimpleNetwork):
         self.__network: SimpleNetwork = network
 
-    def get_capacities(self):
+    def get_capacities(self) -> tp.List[tp.List[FlowValue]]:
         return self.__network.get_capacities()
 
-    def get_flow(self):
-        return self.__network.get_flow()
-
-    def size(self):
+    def size(self) -> int:
         return self.__network.size()
 
     def get_node_fan_in(self, node_id: NodeId) -> tp.List[NodeId]:
@@ -161,49 +156,106 @@ class ResidualGraph(inetwork.INetwork):
 
 
 class LayeredGraph(inetwork.INetwork):
-    def __init__(self, network: tp.Union[ResidualGraph, SimpleNetwork]):
-        self.__network: tp.Optional[SimpleNetwork] = None
-        self.__r_graph: tp.Optional[ResidualGraph] = None
+    def __init__(self, r_network: ResidualGraph):
+        self.__r_network: ResidualGraph = r_network
+        self.__edges: tp.Set[Edge] = set(algo.BFS.bfs_for_dinica(r_network))
+        self.__out: tp.Dict[NodeId, tp.List[Edge]] = dict()
+        self.__in: tp.Dict[NodeId, tp.List[Edge]] = dict()
+        self.__flow: tp.Dict[Edge, FlowValue] = {i: 0 for i in self.__edges}
 
-        if isinstance(network, ResidualGraph):
-            self.__network = None
-            self.__r_graph = network
+        for i in self.__edges:
+            if i[0][0] not in self.__out:
+                self.__out[i[0][0]] = [i]
+            else:
+                self.__out[i[0][0]].append(i)
 
-        elif isinstance(network, SimpleNetwork):
-            self.__network = network
-            self.__r_graph = ResidualGraph(network)
+            if i[0][1] not in self.__in:
+                self.__in[i[0][1]] = [i]
+            else:
+                self.__in[i[0][1]].append(i)
+
+    def get_node_fan_in(self, node) -> tp.List[Edge]:
+        if node in self.__in:
+            return self.__in[node]
         else:
-            raise ValueError
+            return []
 
-    def get_node_fan_in(self, node):
-        pass
+    def get_node_fan_out(self, node) -> tp.List[Edge]:
+        if node in self.__out:
+            return self.__out[node]
+        else:
+            return []
 
-    def get_node_fan_out(self, node):
-        pass
+    def get_edge_capacity(self, edge, edge_type) -> FlowValue:
+        return self.__r_network.get_edge_capacity(edge, edge_type)
 
-    def get_edge_capacity(self, edge, edge_type):
-        pass
+    def get_edge_flow(self, edge, edge_type) -> FlowValue:
+        return self.__flow[(edge, edge_type)]
 
-    def get_edge_flow(self, edge, edge_type):
-        pass
-
-    def get_source(self):
-        pass
-
-    def get_sink(self):
-        pass
+    def set_edge_flow(self, edge, edge_type, value) -> None:
+        self.__flow[(edge, edge_type)] += value
 
     def edge_exist_q(self, edge, edge_type) -> bool:
-        pass
+        return (edge, edge_type) in self.__edges
 
-    def setup(self, *args):
-        pass
+    def size(self) -> int:
+        return self.__r_network.size()
 
-    def size(self):
-        pass
+    def get_flow(self) -> tp.Dict[Edge, FlowValue]:
+        return {i: j for i, j in self.__flow.items()}
 
-    def get_flow(self):
-        pass
+    def get_capacities(self) -> tp.List[tp.List[FlowValue]]:
+        return self.__r_network.get_capacities()
 
-    def get_capacities(self):
-        pass
+    def get_source(self) -> NodeId:
+        return self.__r_network.get_source()
+
+    def get_sink(self) -> NodeId:
+        return self.__r_network.get_sink()
+
+    def get_excess_flow(self, node_id: NodeId) -> FlowValue:
+        sum_in = 0
+        for j in self.get_node_fan_in(node_id):
+            sum_in += self.__flow[j]
+
+        sum_out = 0
+        for j in self.get_node_fan_out(node_id):
+            sum_out += self.__flow[j]
+
+        return sum_in - sum_out
+
+    def init_block_way(self) -> None:
+        source = self.get_source()
+        sink = self.get_sink()
+        lifo = [[] for i in range(self.size())]
+        frozen = [False for i in range(self.size())]
+        for i in range(self.size()):
+            for edge in (((source, i), EdgeType.NORMAL), ((source, i), EdgeType.INVERTED)):
+                self.__flow[edge] = self.get_edge_capacity(*edge)
+                lifo[i].append((edge, self.__flow[edge]))
+
+        order = algo.Topsort.dfs_topsort(self.__out, source)
+        while True:
+            last_active_node = -1
+            for i in order:
+                if i == source or i == sink:
+                    continue
+                for j in self.get_node_fan_out(i):
+                    if not frozen[j[0][1]]:
+                        h = min(self.get_edge_capacity(*j) - self.__flow[j], self.get_excess_flow(i))
+                        self.__flow[j] += h
+                        lifo[j[0][1]].append((j, h))
+                    if self.get_excess_flow(i) <= 0:
+                        break
+
+                if self.get_excess_flow(i) > 0:
+                    last_active_node = i
+
+            if last_active_node == -1:
+                return None
+            else:
+                for i, h in reversed(lifo[last_active_node]):
+                    self.__flow[i] -= min(h, self.get_excess_flow(last_active_node))
+                    if self.get_excess_flow(last_active_node) <= 0:
+                        break
+                frozen[last_active_node] = True
