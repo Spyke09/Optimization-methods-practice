@@ -5,19 +5,23 @@ import visualization
 
 def test(instance, st, fn, order, viz_q=False):
     my_mew_network = network_graph.SimpleNetwork(instance, st, fn)
-    my_mew_network2 = network_graph.SimpleNetwork(instance, st, fn)
-    ed_k = flow_finder.EdmondsKarp()
-    dinica = flow_finder.Dinica()
 
-    ed_k.find(my_mew_network)
-    dinica.find(my_mew_network2)
+    def test_(finder, net):
+        finder.find(net)
+        assert net.check_conservation_law()
+        answer = net.get_network_flow()
+        net.clear()
+        return answer
 
+    answer1 = test_(flow_finder.EdmondsKarp(), my_mew_network)
+    answer2 = test_(flow_finder.Dinica(), my_mew_network)
+    answer3 = test_(flow_finder.GoldbergT(), my_mew_network)
+    assert answer1 == answer3 and answer3 == answer2
+
+    flow_finder.GoldbergT().find(my_mew_network)
     print(f"Answer is: {my_mew_network.get_network_flow()}")
-    print("Network graph:\n", str(my_mew_network), "\n", sep="")
+    print("Network graph:\n", my_mew_network.to_str(), "\n", sep="")
     print("Check conservation law: ", my_mew_network.check_conservation_law())
-    assert my_mew_network.check_conservation_law()
-    assert my_mew_network2.check_conservation_law()
-    assert my_mew_network.get_network_flow() == my_mew_network2.get_network_flow()
     if viz_q:
         visualization.draw_network(my_mew_network, order)
 

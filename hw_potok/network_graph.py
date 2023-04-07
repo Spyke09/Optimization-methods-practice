@@ -10,7 +10,6 @@ def reverse_edge(edge_id: EdgeId) -> EdgeId:
 
 
 class SimpleNetwork(inetwork.INetwork):
-
     def __init__(
             self,
             capacities: tp.Dict[tp.Tuple[int, int], FlowValue],
@@ -42,14 +41,24 @@ class SimpleNetwork(inetwork.INetwork):
             self.__fan_in_nodes[j].append(i)
             self.__fan_out_nodes[i].append(j)
 
-    def __repr__(self) -> str:
+    def clear(self):
+        self.__flow = [[0.0 for _ in range(self.size())] for _ in range(self.size())]
+
+    def to_str(self) -> str:
+        max_len = 0
+        for i in range(self.__nodes_number):
+            for j in range(self.__nodes_number):
+                if self.__capacities[i][j] > 0:
+                    max_len = max(max_len, len(f"{(i, j)}: {self.__flow[i][j]}/{self.__capacities[i][j]} "))
+
         res = ""
         for i in range(self.__nodes_number):
             for j in range(self.__nodes_number):
                 if self.__capacities[i][j] > 0:
-                    res += f"{(i, j)}: {self.__flow[i][j]}/{self.__capacities[i][j]} "
+                    aboba = f"{(i, j)}: {self.__flow[i][j]}/{self.__capacities[i][j]} "
+                    res += aboba + (max_len - len(aboba) + 1) * " "
                 else:
-                    res += len(f"{(i, j)}: {self.__flow[i][j]}/{self.__capacities[i][j]}") * "_" + " "
+                    res += max_len * "_" + " "
             res += "\n"
 
         return res
