@@ -1,7 +1,10 @@
 import flow_finder
 import network_graph
 import visualization
+import logging
 
+logging.basicConfig(format='[%(asctime)s | %(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S',
+                    level=logging.DEBUG)
 
 def test(instance, st, fn, order, viz_q=False):
     my_mew_network = network_graph.SimpleNetwork(instance, st, fn)
@@ -130,8 +133,8 @@ def test6():
 
 if __name__ == "__main__":
     test1()
-    test2()
-    test3()
-    test4()
-    test5()
-    test6()
+    # test2()
+    # test3()
+    # test4()
+    # test5()
+    # test6()
