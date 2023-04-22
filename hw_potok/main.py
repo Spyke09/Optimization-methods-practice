@@ -1,7 +1,9 @@
+import logging
+
+import algo
 import flow_finder
 import network_graph
 import visualization
-import logging
 
 logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S',
                     level=logging.DEBUG)
@@ -133,43 +135,91 @@ def test6():
 
 
 def test_k_kt(path):
-    l = []
+    list_ = []
     with open(path, "r") as f:
         for i in f.readlines():
-            l.append([int(j) for j in i.split(",")])
+            list_.append([int(j) for j in i.split(",")])
     capacities = dict()
-    for i in range(len(l)):
-        for j in range(len(l)):
-            capacities[(i, j)] = l[i][j]
+    for i in range(len(list_)):
+        for j in range(len(list_)):
+            capacities[(i, j)] = list_[i][j]
 
-    test(capacities, 0, len(l) - 1, [])
+    test(capacities, 0, len(list_) - 1, [])
 
 
 def kt_task_4():
     c = {
-        (1,5):1,
-        (1,4):1,
-        (2,1):1,
-        (2,5):1,
-        (2,6):1,
-        (3,6):1,
-        (3,7):1,
-        (4,5):1,
+        (1, 5): 1,
+        (1, 4): 1,
+        (2, 1): 1,
+        (2, 5): 1,
+        (2, 6): 1,
+        (3, 6): 1,
+        (3, 7): 1,
+        (4, 5): 1,
         (4, 2): 1,
-        (4,6):1,
-        (5,3):1,
-        (5,6):1,
-        (6,5):1,
-        (7,1):1,
-        (7,5):1
+        (4, 6): 1,
+        (5, 3): 1,
+        (5, 6): 1,
+        (6, 5): 1,
+        (7, 1): 1,
+        (7, 5): 1
     }
     c = {(i - 1, j - 1): 1 for (i, j), _ in c.items()}
 
-    my_mew_network = network_graph.SimpleNetwork(c, 0, 6)
+    network_graph.SimpleNetwork(c, 0, 6)
 
 
-    l_network = network_graph.LayeredGraph(network_graph.ResidualGraph(my_mew_network))
-    print()
+def test_7():
+    cap = {
+        (1, 5): 1,
+        (2, 1): 1,
+        (2, 3): 1,
+        (3, 2): 1,
+        (3, 6): 1,
+        (4, 6): 1,
+        (5, 4): 1,
+        (5, 3): 1,
+        (6, 5): 1,
+        (6, 3): 1,
+        (6, 4): 1,
+    }
+
+    cost = {
+        (1, 5): -15,
+        (2, 1): -5,
+        (2, 3): 10,
+        (3, 2): -10,
+        (3, 6): 5,
+        (4, 6): 6,
+        (5, 4): 0,
+        (5, 3): 3,
+        (6, 5): -10,
+        (6, 3): -5,
+        (6, 4): -6,
+    }
+
+    cap = {(i - 1, j - 1): v for (i, j), v in cap.items()}
+    cost = {(i - 1, j - 1): v for (i, j), v in cost.items()}
+    my_mew_network = network_graph.SimpleNetwork(cap, 0, 5, cost)
+    algo.NegativeCycleFinder.find(my_mew_network)
+
+
+def test_8():
+    cap = {
+        (0, 1): 1,
+        (1, 2): 1,
+        (2, 3): 1,
+    }
+
+    cost = {
+        (0, 1): -15,
+        (1, 2): -5,
+        (2, 3): 10,
+    }
+
+    my_mew_network = network_graph.SimpleNetwork(cap, 0, 3, cost)
+    algo.NegativeCycleFinder.find(my_mew_network)
 
 
 if __name__ == "__main__":
@@ -178,6 +228,8 @@ if __name__ == "__main__":
     # test3()
     # test4()
     # test5()
-    test6()
+    # test6()
     # test_k_kt("/home/alexander/Загрузки/graph1(1).csv")
     # kt_task_4()
+    test_7()
+    # test_8()

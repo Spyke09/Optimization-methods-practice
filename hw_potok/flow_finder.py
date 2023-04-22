@@ -161,3 +161,32 @@ class GoldbergT(IMaximumFlowFinder):
                     max_psi = psi[i]
                     res = i
         return res
+
+
+class MinCostFlow(IMaximumFlowFinder):
+    def __init__(self):
+        self.logger = logging.getLogger("MinCostFlow")
+
+    def find(self, network: network_graph.SimpleNetwork, flow_finder: IMaximumFlowFinder = GoldbergT()):
+        self.logger.info("Start finding min-cost max-flow")
+        flow_finder.find(network)
+        r_network = ResidualGraph(network)
+        while True:
+            cycle = algo.NegativeCycleFinder.find(r_network)
+            self.logger.debug(f"Next negative cycle: {[(i[0], i[1].name) for i in cycle]}")
+            if not cycle:
+                break
+
+            gamma = None
+            for edge_id, edge_type in cycle:
+                gamma = min(gamma, r_network.get_edge_capacity(edge_id, edge_type))
+
+            for edge_id, edge_type in cycle:
+                if edge_type == EdgeType.NORMAL:
+                    self.logger.debug(f"Increase along the edge {edge_id} by {gamma}.")
+                    network.set_edge_flow(edge_id, network.get_edge_flow(edge_id) + gamma)
+
+                if edge_type == EdgeType.INVERTED:
+                    self.logger.debug(f"Decrease along the edge {edge_id} by {gamma}.")
+                    r_e_id = network_graph.reverse_edge(edge_id)
+                    network.set_edge_flow(r_e_id, network.get_edge_flow(r_e_id) - gamma)

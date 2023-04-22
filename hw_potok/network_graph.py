@@ -2,7 +2,7 @@ import typing as tp
 
 import algo
 import inetwork
-from inetwork import EdgeType, NodeId, EdgeId, FlowValue, Edge
+from inetwork import EdgeType, NodeId, EdgeId, FlowValue, Edge, CostValue
 
 
 def reverse_edge(edge_id: EdgeId) -> EdgeId:
@@ -14,14 +14,15 @@ class SimpleNetwork(inetwork.INetwork):
             self,
             capacities: tp.Dict[tp.Tuple[int, int], FlowValue],
             source: NodeId,
-            sink: NodeId
+            sink: NodeId,
+            cost: tp.Optional[tp.Dict[tp.Tuple[int, int], CostValue]] = None
     ) -> None:
         n = max([max(i) for i in capacities.keys()]) + 1
         self.__source = source
         self.__sink = sink
         self.__edges_number = n
-        self.__capacities = [[0.0 for _ in range(n)] for _ in range(n)]
-        self.__flow = [[0.0 for _ in range(n)] for _ in range(n)]
+        self.__capacities = [[FlowValue() for _ in range(n)] for _ in range(n)]
+        self.__flow = [[FlowValue() for _ in range(n)] for _ in range(n)]
         for i in range(n):
             for j in range(n):
                 if (i, j) in capacities:
@@ -40,6 +41,11 @@ class SimpleNetwork(inetwork.INetwork):
         for i, j in capacities.keys():
             self.__fan_in_nodes[j].append(i)
             self.__fan_out_nodes[i].append(j)
+
+        self.__cost = [[CostValue() for _ in range(n)] for _ in range(n)]
+        if cost:
+            for (i, j), v in cost.items():
+                self.__cost[i][j] = v
 
     def clear(self):
         self.__flow = [[0.0 for _ in range(self.size())] for _ in range(self.size())]
@@ -124,6 +130,11 @@ class SimpleNetwork(inetwork.INetwork):
     def get_capacities(self) -> tp.List[tp.List[FlowValue]]:
         return [[j for j in i] for i in self.__capacities]
 
+    def get_cost(self, edge_id: EdgeId, edge_type: EdgeType = EdgeType.NORMAL):
+        if edge_type == EdgeType.INVERTED:
+            return 0
+        return self.__cost[edge_id[0]][edge_id[1]]
+
 
 class ResidualGraph(inetwork.INetwork):
     def __init__(self, network: SimpleNetwork):
@@ -162,6 +173,12 @@ class ResidualGraph(inetwork.INetwork):
 
     def edge_exist_q(self, edge_id: EdgeId, edge_type: EdgeType) -> bool:
         return self.get_edge_capacity(edge_id, edge_type) > 0
+
+    def get_cost(self, edge_id: EdgeId, edge_type: EdgeType):
+        if edge_type == EdgeType.INVERTED:
+            return self.__network.get_cost(edge_id)
+        else:
+            return -self.__network.get_cost(edge_id)
 
 
 class LayeredGraph(inetwork.INetwork):
@@ -268,3 +285,6 @@ class LayeredGraph(inetwork.INetwork):
                     if self.get_excess_flow(last_active_node) <= 0:
                         break
                 frozen[last_active_node] = True
+
+    def get_cost(self, edge_id, edge_type):
+        return 0

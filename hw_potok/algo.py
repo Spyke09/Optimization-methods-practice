@@ -90,3 +90,59 @@ class Topsort:
 
         dfs(source)
         return list(reversed(ordering))
+
+
+class NegativeCycleFinder:
+    @staticmethod
+    def find(network: inetwork.INetwork):
+        n = network.size()
+        f: tp.List[tp.List[tp.Optional[inetwork.CostValue]]] = [[None for _ in range(n)] for _ in range(n + 1)]
+        for i in range(n):
+            f[0][i] = 0
+        path = [None for _ in range(n)]
+        for k in range(len(f) - 1):
+            for v in range(n):
+                r = None
+                for u in range(n):
+                    for e_t in (EdgeType.NORMAL, EdgeType.INVERTED):
+                        if not network.edge_exist_q((u, v), e_t):
+                            continue
+                        c = network.get_cost((u, v), e_t)
+                        if not f[k + 1][v] is None:
+                            if f[k + 1][v] > f[k][u] + c:
+                                f[k + 1][v] = f[k][u] + c
+                                path[v] = (u, v), e_t
+                        else:
+                            if not f[k][u] is None:
+                                f[k + 1][v] = f[k][u] + c
+                                path[v] = (u, v), e_t
+                            else:
+                                f[k + 1][v] = f[k][u]
+
+        if not any(f[n]):
+            return None
+
+        x_z = None
+        min_v = None
+        for x in range(n):
+            max_v = None
+            for k in range(n):
+                if not f[k][x] is None:
+                    cur_v = (f[n][x] - f[k][x]) / (n - k)
+                    if (not max_v) or cur_v > max_v:
+                        max_v = cur_v
+            if (not min_v) or max_v < min_v:
+                min_v = max_v
+                x_z = x
+
+        res = []
+        x_c = x_z
+        for i in range(n + 1):
+            res.append(path[x_c])
+            if path[x_c][0][0] == x_z:
+                break
+            x_c = path[x_c][0][0]
+        res = list(reversed(res))
+        print(res)
+
+        # print(path)

@@ -10,29 +10,30 @@ class EdgeType(Enum):
 
 NodeId = int
 FlowValue = float
+CostValue = float
 EdgeId = tp.Tuple[NodeId, NodeId]
 Edge = tp.Tuple[EdgeId, EdgeType]
 
 
 class INetwork(ABC):
     @abstractmethod
-    def get_node_fan_in(self, node):
+    def get_node_fan_in(self, node_id):
         raise NotImplementedError
 
     @abstractmethod
-    def get_node_fan_out(self, node):
+    def get_node_fan_out(self, node_id):
         raise NotImplementedError
 
     @abstractmethod
-    def get_edge_capacity(self, edge, edge_type):
+    def get_edge_capacity(self, edge_id, edge_type):
         raise NotImplementedError
 
     @abstractmethod
-    def get_edge_flow(self, edge, edge_type):
+    def get_edge_flow(self, edge_id, edge_type):
         raise NotImplementedError
 
     @abstractmethod
-    def edge_exist_q(self, edge, edge_type) -> bool:
+    def edge_exist_q(self, edge_id, edge_type) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -49,4 +50,8 @@ class INetwork(ABC):
 
     @abstractmethod
     def get_sink(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_cost(self, edge_id, edge_type):
         raise NotImplementedError
