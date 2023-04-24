@@ -3,6 +3,7 @@ from collections import deque
 
 import inetwork
 from inetwork import EdgeType, NodeId, EdgeId, Edge
+from numeric_tools import Infinity
 
 
 class BFS:
@@ -92,39 +93,36 @@ class Topsort:
         return list(reversed(ordering))
 
 
+GCostValue = tp.Union[inetwork.CostValue, Infinity]
+
+
 class NegativeCycleFinder:
     @staticmethod
-    def find(network: inetwork.INetwork):
+    def __get_f_and_kpath(network: inetwork.INetwork) \
+            -> tp.Tuple[
+                    tp.List[tp.List[GCostValue]],
+                    tp.List[tp.List[tp.Optional[Edge]]]
+                ]:
         n = network.size()
-        f: tp.List[tp.List[tp.Optional[inetwork.CostValue]]] = [[None for _ in range(n)] for _ in range(n + 1)]
+        f: tp.List[tp.List[GCostValue]] = [[Infinity() for _ in range(n)] for _ in range(n + 1)]
         for i in range(n):
             f[0][i] = 0
-        path = [None for _ in range(n)]
+        path: tp.List[tp.List[tp.Optional[Edge]]] = [[None for _ in range(n)] for _ in range(n + 1)]
         for k in range(len(f) - 1):
             for v in range(n):
-                r = None
                 for u in range(n):
                     for e_t in (EdgeType.NORMAL, EdgeType.INVERTED):
-                        if not network.edge_exist_q((u, v), e_t):
-                            continue
-                        c = network.get_cost((u, v), e_t)
-                        if not f[k + 1][v] is None:
+                        if network.edge_exist_q((u, v), e_t):
+                            c = network.get_cost((u, v), e_t)
                             if f[k + 1][v] > f[k][u] + c:
                                 f[k + 1][v] = f[k][u] + c
-                                if k == n - 1:
-                                    path[v] = (u, v), e_t
-                        else:
-                            if not f[k][u] is None:
-                                f[k + 1][v] = f[k][u] + c
-                                if k == n - 1:
-                                    path[v] = (u, v), e_t
-                            else:
-                                f[k + 1][v] = f[k][u]
+                                path[k + 1][v] = (u, v), e_t
 
-        print(path)
-        if not any(f[n]):
-            return None
+        return f, path
 
+    @staticmethod
+    def __get_x_z(f: tp.List[tp.List[GCostValue]]):
+        n = len(f) - 1
         x_z = None
         min_v = None
         for x in range(n):
@@ -137,15 +135,25 @@ class NegativeCycleFinder:
             if (not min_v) or max_v < min_v:
                 min_v = max_v
                 x_z = x
+        return x_z
 
+    @staticmethod
+    def find(network: inetwork.INetwork):
+        n = network.size()
+        f, path = NegativeCycleFinder.__get_f_and_kpath(network)
+
+        if all([isinstance(i, Infinity) for i in f[n]]):
+            return []
+
+        x_z = NegativeCycleFinder.__get_x_z(f)
         res = []
         x_c = x_z
-        for i in range(n + 1):
-            res.append(path[x_c])
-            if path[x_c][0][0] == x_z:
+        for i in range(n - 1, -1, -1):
+            res.append(path[i][x_c])
+            if res[-1][0][0] == x_z:
                 break
-            x_c = path[x_c][0][0]
+            x_c = res[-1][0][0]
         res = list(reversed(res))
-        print(res)
 
-        # print(path)
+        print(res)
+        return res
