@@ -111,14 +111,17 @@ class NegativeCycleFinder:
                         if not f[k + 1][v] is None:
                             if f[k + 1][v] > f[k][u] + c:
                                 f[k + 1][v] = f[k][u] + c
-                                path[v] = (u, v), e_t
+                                if k == n - 1:
+                                    path[v] = (u, v), e_t
                         else:
                             if not f[k][u] is None:
                                 f[k + 1][v] = f[k][u] + c
-                                path[v] = (u, v), e_t
+                                if k == n - 1:
+                                    path[v] = (u, v), e_t
                             else:
                                 f[k + 1][v] = f[k][u]
 
+        print(path)
         if not any(f[n]):
             return None
 
