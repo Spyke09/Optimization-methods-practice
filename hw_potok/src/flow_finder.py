@@ -1,9 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 
-import algo
-import network_graph
-from network_graph import ResidualGraph, EdgeType
+from hw_potok.src import algo
+from hw_potok.src import  network_graph
+from hw_potok.src.network_graph import ResidualGraph, EdgeType
 
 
 class IMaximumFlowFinder(ABC):
@@ -171,22 +171,28 @@ class MinCostFlow(IMaximumFlowFinder):
         self.logger.info("Start finding min-cost max-flow")
         flow_finder.find(network)
         r_network = ResidualGraph(network)
+        self.logger.debug(f"Initial total cost: {network.get_total_cost()}")
         while True:
             cycle = algo.NegativeCycleFinder.find(r_network)
             self.logger.debug(f"Next negative cycle: {[(i[0], i[1].name) for i in cycle]}")
             if not cycle:
                 break
 
-            gamma = None
+            gamma = r_network.get_edge_capacity(*(cycle[0]))
             for edge_id, edge_type in cycle:
                 gamma = min(gamma, r_network.get_edge_capacity(edge_id, edge_type))
 
             for edge_id, edge_type in cycle:
                 if edge_type == EdgeType.NORMAL:
-                    self.logger.debug(f"Increase along the edge {edge_id} by {gamma}.")
                     network.set_edge_flow(edge_id, network.get_edge_flow(edge_id) + gamma)
+                    self.logger.debug(f"Increase along the edge {edge_id} by {gamma}.")
 
                 if edge_type == EdgeType.INVERTED:
-                    self.logger.debug(f"Decrease along the edge {edge_id} by {gamma}.")
                     r_e_id = network_graph.reverse_edge(edge_id)
                     network.set_edge_flow(r_e_id, network.get_edge_flow(r_e_id) - gamma)
+                    self.logger.debug(f"Decrease along the edge {edge_id} by {gamma}.")
+
+            self.logger.debug(f"Current total cost: {network.get_total_cost()}")
+
+        self.logger.info(f"Ended finding min-cost max-flow")
+        self.logger.info(f"Final total cost: {network.get_total_cost()}")

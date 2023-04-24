@@ -1,9 +1,9 @@
 import typing as tp
 from collections import deque
 
-import inetwork
-from inetwork import EdgeType, NodeId, EdgeId, Edge
-from numeric_tools import Infinity, MinusInfinity
+from hw_potok.src import inetwork
+from hw_potok.src.inetwork import EdgeType, NodeId, EdgeId, Edge
+from hw_potok.src.numeric_tools import Infinity, MinusInfinity
 
 
 class BFS:
@@ -111,20 +111,23 @@ class NegativeCycleFinder:
             for v in range(n):
                 for u in range(n):
                     for e_t in (EdgeType.NORMAL, EdgeType.INVERTED):
-                        if network.edge_exist_q((u, v), e_t):
-                            c = network.get_cost((u, v), e_t)
+                        edge = (u, v), e_t
+                        if network.edge_exist_q(*edge):
+                            c = network.get_cost(*edge)
                             if f[k + 1][v] > f[k][u] + c:
                                 f[k + 1][v] = f[k][u] + c
-                                path[k + 1][v] = (u, v), e_t
+                                path[k + 1][v] = edge
 
         return f, path
 
     @staticmethod
     def __get_x_z(f: tp.List[tp.List[GCostValue]]) -> tp.Optional[NodeId]:
-        n = len(f) - 1
+        n = len(f[0])
         x_z = None
         min_v = Infinity()
         for x in range(n):
+            if isinstance(f[n][x], Infinity):
+                continue
             max_v = MinusInfinity()
             for k in range(n):
                 if not isinstance(f[k][x], Infinity):
@@ -134,7 +137,28 @@ class NegativeCycleFinder:
             if max_v < min_v:
                 min_v = max_v
                 x_z = x
-        return x_z
+        return None if min_v >= 0 else x_z
+
+    @staticmethod
+    def __find_cycle(path, x_z) -> tp.List[Edge]:
+        n = len(path[0])
+        res = []
+        res_2 = []
+        checked = set()
+        for i in reversed(range(n + 1)):
+            if x_z in checked:
+                for edge in reversed(res):
+                    res_2.append(edge)
+                    if edge[0][1] == x_z:
+                        break
+                return list(reversed(res_2))
+
+            checked.add(x_z)
+            res.append(path[i][x_z])
+            x_z = res[-1][0][0]
+
+        raise ValueError("Invalid cycle")
+
 
     @staticmethod
     def find(network: inetwork.INetwork) -> tp.List[Edge]:
@@ -145,13 +169,7 @@ class NegativeCycleFinder:
             return []
 
         x_z = NegativeCycleFinder.__get_x_z(f)
-        res = []
-        x_c = x_z
-        for i in range(n - 1, -1, -1):
-            res.append(path[i][x_c])
-            if res[-1][0][0] == x_z:
-                break
-            x_c = res[-1][0][0]
-        res = list(reversed(res))
-
+        if not x_z:
+            return []
+        res = NegativeCycleFinder.__find_cycle(path, x_z)
         return res

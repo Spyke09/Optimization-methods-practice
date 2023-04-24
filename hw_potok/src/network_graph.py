@@ -1,8 +1,8 @@
 import typing as tp
 
-import algo
-import inetwork
-from inetwork import EdgeType, NodeId, EdgeId, FlowValue, Edge, CostValue
+from hw_potok.src import algo
+from hw_potok.src import inetwork
+from hw_potok.src.inetwork import EdgeType, NodeId, EdgeId, FlowValue, Edge, CostValue
 
 
 def reverse_edge(edge_id: EdgeId) -> EdgeId:
@@ -12,10 +12,10 @@ def reverse_edge(edge_id: EdgeId) -> EdgeId:
 class SimpleNetwork(inetwork.INetwork):
     def __init__(
             self,
-            capacities: tp.Dict[tp.Tuple[int, int], FlowValue],
+            capacities: tp.Dict[tp.Tuple[NodeId, NodeId], FlowValue],
             source: NodeId,
             sink: NodeId,
-            cost: tp.Optional[tp.Dict[tp.Tuple[int, int], CostValue]] = None
+            cost: tp.Optional[tp.Dict[tp.Tuple[NodeId, NodeId], CostValue]] = None
     ) -> None:
         n = max([max(i) for i in capacities.keys()]) + 1
         self.__source = source
@@ -27,7 +27,7 @@ class SimpleNetwork(inetwork.INetwork):
             for j in range(n):
                 if (i, j) in capacities:
                     self.__capacities[i][j] = capacities[(i, j)]
-                self.__flow[i][j] = 0
+                self.__flow[i][j] = FlowValue()
 
         node_set = set()
         for i, j in capacities.keys():
@@ -48,7 +48,7 @@ class SimpleNetwork(inetwork.INetwork):
                 self.__cost[i][j] = v
 
     def clear(self):
-        self.__flow = [[0.0 for _ in range(self.size())] for _ in range(self.size())]
+        self.__flow = [[FlowValue() for _ in range(self.size())] for _ in range(self.size())]
 
     def to_str(self) -> str:
         max_len = 0
@@ -111,11 +111,11 @@ class SimpleNetwork(inetwork.INetwork):
         return self.__source
 
     def get_excess_flow(self, node_id: NodeId) -> FlowValue:
-        sum_in = 0
+        sum_in = FlowValue()
         for j in self.get_node_fan_in(node_id):
             sum_in += self.__flow[j][node_id]
 
-        sum_out = 0
+        sum_out = FlowValue()
         for j in self.get_node_fan_out(node_id):
             sum_out += self.__flow[node_id][j]
 
@@ -132,8 +132,16 @@ class SimpleNetwork(inetwork.INetwork):
 
     def get_cost(self, edge_id: EdgeId, edge_type: EdgeType = EdgeType.NORMAL):
         if edge_type == EdgeType.INVERTED:
-            return 0
+            return CostValue()
         return self.__cost[edge_id[0]][edge_id[1]]
+
+    def get_total_cost(self):
+        n = self.size()
+        s = CostValue()
+        for i in range(n):
+            for j in range(n):
+                s += self.get_edge_flow((i, j)) * self.get_cost((i, j))
+        return s
 
 
 class ResidualGraph(inetwork.INetwork):
@@ -163,7 +171,7 @@ class ResidualGraph(inetwork.INetwork):
             return self.__network.get_edge_capacity(edge_id, EdgeType.NORMAL) - self.__network.get_edge_flow(edge_id, EdgeType.NORMAL)
 
     def get_edge_flow(self, edge_id: EdgeId, edge_type: EdgeType) -> FlowValue:
-        return 0.0
+        return FlowValue()
 
     def get_source(self) -> NodeId:
         return self.__network.get_source()
@@ -176,9 +184,9 @@ class ResidualGraph(inetwork.INetwork):
 
     def get_cost(self, edge_id: EdgeId, edge_type: EdgeType):
         if edge_type == EdgeType.INVERTED:
-            return self.__network.get_cost(edge_id)
+            return -self.__network.get_cost(reverse_edge(edge_id))
         else:
-            return -self.__network.get_cost(edge_id)
+            return self.__network.get_cost(edge_id)
 
 
 class LayeredGraph(inetwork.INetwork):
@@ -187,7 +195,7 @@ class LayeredGraph(inetwork.INetwork):
         self.__edges: tp.Set[Edge] = set(algo.BFS.bfs_for_dinica(r_network))
         self.__out: tp.Dict[NodeId, tp.List[Edge]] = dict()
         self.__in: tp.Dict[NodeId, tp.List[Edge]] = dict()
-        self.__flow: tp.Dict[Edge, FlowValue] = {i: 0 for i in self.__edges}
+        self.__flow: tp.Dict[Edge, FlowValue] = {i: FlowValue() for i in self.__edges}
 
         for i in self.__edges:
             if i[0][0] not in self.__out:
@@ -240,11 +248,11 @@ class LayeredGraph(inetwork.INetwork):
         return self.__r_network.get_sink()
 
     def get_excess_flow(self, node_id: NodeId) -> FlowValue:
-        sum_in = 0
+        sum_in = FlowValue()
         for j in self.get_node_fan_in(node_id):
             sum_in += self.__flow[j]
 
-        sum_out = 0
+        sum_out = FlowValue()
         for j in self.get_node_fan_out(node_id):
             sum_out += self.__flow[j]
 
@@ -287,4 +295,5 @@ class LayeredGraph(inetwork.INetwork):
                 frozen[last_active_node] = True
 
     def get_cost(self, edge_id, edge_type):
-        return 0
+        return CostValue()
+

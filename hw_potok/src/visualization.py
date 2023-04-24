@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import networkx
 import networkx as nx
 
-import network_graph
+from hw_potok.src import network_graph
 
 
 def draw_network(network: network_graph.SimpleNetwork, order) -> None:

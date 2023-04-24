@@ -9,8 +9,8 @@ class EdgeType(Enum):
 
 
 NodeId = int
-FlowValue = float
-CostValue = float
+FlowValue = int
+CostValue = int
 EdgeId = tp.Tuple[NodeId, NodeId]
 Edge = tp.Tuple[EdgeId, EdgeType]
 
