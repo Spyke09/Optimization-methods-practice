@@ -3,7 +3,7 @@ from collections import deque
 
 import inetwork
 from inetwork import EdgeType, NodeId, EdgeId, Edge
-from numeric_tools import Infinity
+from numeric_tools import Infinity, MinusInfinity
 
 
 class BFS:
@@ -54,7 +54,6 @@ class BFS:
 
     @staticmethod
     def bfs_for_dinica(network: inetwork.INetwork) -> tp.List[tp.Tuple[EdgeId, EdgeType]]:
-        start = network.get_source()
         finish = network.get_sink()
         dist = BFS.perform_dfs(network)
 
@@ -121,24 +120,24 @@ class NegativeCycleFinder:
         return f, path
 
     @staticmethod
-    def __get_x_z(f: tp.List[tp.List[GCostValue]]):
+    def __get_x_z(f: tp.List[tp.List[GCostValue]]) -> tp.Optional[NodeId]:
         n = len(f) - 1
         x_z = None
-        min_v = None
+        min_v = Infinity()
         for x in range(n):
-            max_v = None
+            max_v = MinusInfinity()
             for k in range(n):
-                if not f[k][x] is None:
+                if not isinstance(f[k][x], Infinity):
                     cur_v = (f[n][x] - f[k][x]) / (n - k)
-                    if (not max_v) or cur_v > max_v:
+                    if cur_v > max_v:
                         max_v = cur_v
-            if (not min_v) or max_v < min_v:
+            if max_v < min_v:
                 min_v = max_v
                 x_z = x
         return x_z
 
     @staticmethod
-    def find(network: inetwork.INetwork):
+    def find(network: inetwork.INetwork) -> tp.List[Edge]:
         n = network.size()
         f, path = NegativeCycleFinder.__get_f_and_kpath(network)
 
@@ -155,5 +154,4 @@ class NegativeCycleFinder:
             x_c = res[-1][0][0]
         res = list(reversed(res))
 
-        print(res)
         return res

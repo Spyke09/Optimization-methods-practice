@@ -1,5 +1,3 @@
-import random
-
 import matplotlib.pyplot as plt
 import networkx
 import networkx as nx
