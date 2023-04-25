@@ -2,6 +2,7 @@ import logging
 
 from hw_potok.src import flow_finder
 from hw_potok.src import network_graph
+from hw_potok.src import algo
 
 logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S',
                     level=logging.DEBUG)
@@ -17,6 +18,7 @@ def test_1():
         (1, 2): 15,
         (1, 5): 5,
         (2, 3): 15,
+        (3, 6): 10,
         (3, 7): 10,
         (4, 5): 8,
         (4, 6): 10,
@@ -31,6 +33,7 @@ def test_1():
         (1, 2): 5,
         (1, 5): -15,
         (2, 3): 5,
+        (3, 6): 5,
         (3, 7): 0,
         (4, 5): 0,
         (4, 6): 6,
@@ -48,4 +51,22 @@ def test_1():
         # visualization.draw_network(my_mew_network, [0, 1, 2, 4, 1, 3, 4, 5])
 
 
+def test_2():
+    cap = {
+        (0, 1): 1,
+        (1, 2): 1,
+        (2, 3): 1
+    }
+
+    cost = {
+        (0, 1): -5,
+        (1, 2): 5,
+        (2, 3): 0
+    }
+
+    my_mew_network = network_graph.SimpleNetwork(cap, 0, 2, cost)
+    algo.NegativeCycleFinder.find(my_mew_network)
+
+
 test_1()
+# test_2()
