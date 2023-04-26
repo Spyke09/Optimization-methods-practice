@@ -65,8 +65,28 @@ def test_2():
     }
 
     my_mew_network = network_graph.SimpleNetwork(cap, 0, 2, cost)
-    algo.NegativeCycleFinder.find(my_mew_network)
+    cycle = algo.NegativeCycleFinder.find(my_mew_network)
+    assert len(cycle) == 0
+
+
+def test_3():
+    cap = {
+        (0, 1): 1,
+        (1, 0): 1,
+        (1, 2): 1,
+    }
+
+    cost = {
+        (0, 1): -1,
+        (1, 0): -1,
+        (1, 2): -2,
+    }
+
+    my_mew_network = network_graph.SimpleNetwork(cap, 0, 4, cost)
+    cycle = algo.NegativeCycleFinder.find(my_mew_network)
+    assert len(cycle) == 2
 
 
 test_1()
-# test_2()
+test_2()
+test_3()

@@ -139,17 +139,20 @@ class NegativeCycleFinder:
         return None if min_v >= 0 else x_z
 
     @staticmethod
-    def __find_cycle(path, x_z) -> tp.List[Edge]:
+    def __find_cycle(path, x_z) -> tp.Optional[tp.List[tp.Optional[Edge]]]:
         n = len(path[0])
-        res = []
-        x_c = x_z
-        for i in reversed(range(n + 1)):
-            res.append(path[i][x_c])
-            if path[i][x_c][0][0] == x_z:
-                break
-            x_c = res[-1][0][0]
+        checked = [None for i in range(n)]
+        res = [None for _ in range(n)]
+        for i in reversed(range(n)):
+            prev_edge = path[i + 1][x_z]
+            (a1, a2), _ = prev_edge
+            res[i] = prev_edge
+            if not checked[a1] is None:
+                return res[i:checked[a1]]
+            checked[a1] = i
+            x_z = a1
+        return None
 
-        return list(reversed(res))
 
     @staticmethod
     def find(network: inetwork.INetwork) -> tp.List[Edge]:
@@ -160,7 +163,7 @@ class NegativeCycleFinder:
             return []
 
         x_z = NegativeCycleFinder.__get_x_z(f)
-        if not x_z:
+        if x_z is None:
             return []
         res = NegativeCycleFinder.__find_cycle(path, x_z)
         return res
