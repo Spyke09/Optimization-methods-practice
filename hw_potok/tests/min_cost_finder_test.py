@@ -11,7 +11,7 @@ logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S
 logger = logging.getLogger("TestMinCostFlowFinder")
 
 
-def test_1():
+def hw_test():
     cap = {
         (0, 1): 15,
         (0, 4): 10,
@@ -51,7 +51,7 @@ def test_1():
         # visualization.draw_network(my_mew_network, [0, 1, 2, 4, 1, 3, 4, 5])
 
 
-def test_2():
+def acyclic_graph_test():
     cap = {
         (0, 1): 1,
         (1, 2): 1,
@@ -69,7 +69,7 @@ def test_2():
     assert len(cycle) == 0
 
 
-def test_3():
+def simple_cycle_test():
     cap = {
         (0, 1): 1,
         (1, 0): 1,
@@ -87,6 +87,28 @@ def test_3():
     assert len(cycle) == 2
 
 
-test_1()
-test_2()
-test_3()
+def dual_edges_test():
+    cap = {
+        (0, 1): 2,
+        (1, 0): 2,
+    }
+
+    cost = {
+        (0, 1): 1,
+        (1, 0): 2,
+    }
+
+    my_mew_network = network_graph.SimpleNetwork(cap, 0, 1, cost)
+    my_mew_network.set_edge_flow((0, 1), 1)
+    my_mew_network.set_edge_flow((1, 0), 1)
+    r_network = network_graph.ResidualGraph(my_mew_network)
+    assert r_network.get_cost((0, 1), network_graph.EdgeType.NORMAL) == 1
+    assert r_network.get_cost((1, 0), network_graph.EdgeType.NORMAL) == 2
+    assert r_network.get_cost((0, 1), network_graph.EdgeType.INVERTED) == -2
+    assert r_network.get_cost((1, 0), network_graph.EdgeType.INVERTED) == -1
+
+
+hw_test()
+acyclic_graph_test()
+simple_cycle_test()
+dual_edges_test()
