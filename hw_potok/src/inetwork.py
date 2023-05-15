@@ -37,7 +37,7 @@ class INetwork(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def size(self):
+    def size(self) -> int:
         raise NotImplementedError
 
     @abstractmethod
@@ -45,13 +45,13 @@ class INetwork(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_source(self):
+    def get_source(self) -> NodeId:
         raise NotImplementedError
 
     @abstractmethod
-    def get_sink(self):
+    def get_sink(self) -> NodeId:
         raise NotImplementedError
 
     @abstractmethod
-    def get_cost(self, edge_id, edge_type):
+    def get_cost(self, edge_id, edge_type) -> CostValue:
         raise NotImplementedError

@@ -44,11 +44,48 @@ def hw_test():
 
     my_mew_network = network_graph.SimpleNetwork(cap, 0, 7, cost)
     finder = flow_finder.MinCostFlow()
-    for i in (flow_finder.EdmondsKarp(), flow_finder.Dinica(), flow_finder.GoldbergT()):
+    for i in reversed((flow_finder.EdmondsKarp(), flow_finder.Dinica(), flow_finder.GoldbergT())):
         my_mew_network.clear()
         finder.find(my_mew_network, i)
         assert my_mew_network.get_total_cost() == 107
         # visualization.draw_network(my_mew_network, [0, 1, 2, 4, 1, 3, 4, 5])
+
+
+def hw_test_2():
+    cap = {
+        (0, 1): 15,
+        (0, 4): 10,
+        (1, 2): 15,
+        (1, 5): 5,
+        (2, 3): 15,
+        (3, 6): 10,
+        (3, 7): 10,
+        (4, 5): 8,
+        (4, 6): 10,
+        (5, 3): 4,
+        (5, 6): 8,
+        (6, 7): 15
+    }
+
+    cost = {
+        (0, 1): 0,
+        (0, 4): 0,
+        (1, 2): 5,
+        (1, 5): -15,
+        (2, 3): 5,
+        (3, 6): 5,
+        (3, 7): 0,
+        (4, 5): 0,
+        (4, 6): 6,
+        (5, 3): 3,
+        (5, 6): 5,
+        (6, 7): 0
+    }
+
+    my_mew_network = network_graph.SimpleNetwork(cap, 0, 7, cost)
+    finder = flow_finder.MinCostFlowSP()
+    finder.find(my_mew_network)
+    # assert my_mew_network.get_total_cost() == 107
 
 
 def acyclic_graph_test():
@@ -108,6 +145,7 @@ def dual_edges_test():
     assert r_network.get_cost((1, 0), network_graph.EdgeType.INVERTED) == -1
 
 
+hw_test_2()
 hw_test()
 acyclic_graph_test()
 simple_cycle_test()

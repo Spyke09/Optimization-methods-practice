@@ -1,5 +1,7 @@
 import typing as tp
 from collections import deque
+from queue import PriorityQueue
+
 
 from hw_potok.src import inetwork
 from hw_potok.src.inetwork import EdgeType, NodeId, EdgeId, Edge
@@ -133,7 +135,7 @@ class NegativeCycleFinder:
                     cur_v = (f[n][x] - f[k][x]) / (n - k)
                     if (max_v is None) or (cur_v > max_v):
                         max_v = cur_v
-            if (not (max_v is None)) and ((min_v is None) or max_v <= min_v):
+            if (not (max_v is None)) and ((min_v is None) or max_v < min_v):
                 min_v = max_v
                 x_z = x
         return None if min_v >= 0 else x_z
@@ -167,3 +169,47 @@ class NegativeCycleFinder:
             return []
         res = NegativeCycleFinder.__find_cycle(path, x_z)
         return res
+
+
+class MinCostPathFinder:
+    @staticmethod
+    def __get_f_and_kpath(network: inetwork.INetwork) -> tp.List[tp.Optional[Edge]]:
+        n = network.size()
+        s = network.get_source()
+        f: tp.List[GCostValue] = [None for _ in range(n)]
+        path: tp.List[tp.Optional[Edge]] = [None for _ in range(n)]
+        checked = [False for _ in range(n)]
+        f[s] = 0
+        queue = PriorityQueue()
+        queue.put((f[s], s))
+        while not queue.empty():
+            v = queue.get()[1]
+            if checked[v]:
+                continue
+            checked[v] = True
+            for w in range(n):
+                for edge_type in (EdgeType.NORMAL, EdgeType.INVERTED):
+                    if network.edge_exist_q((v, w), edge_type):
+                        if f[w] is None or f[w] > f[v] + network.get_cost((v, w), edge_type):
+                            f[w] = f[v] + network.get_cost((v, w), edge_type)
+                            path[w] = (v, w), edge_type
+                            queue.put((f[w], w))
+
+        return path
+
+    @staticmethod
+    def find(network: inetwork.INetwork) -> tp.List[tp.Optional[Edge]]:
+        path = MinCostPathFinder.__get_f_and_kpath(network)
+        s, t = network.get_source(), network.get_sink()
+
+        if path[t] is None:
+            return []
+        x_z = t
+        res = []
+        while x_z != s:
+            prev_edge = path[x_z]
+            (a1, a2), _ = prev_edge
+            res.append(prev_edge)
+            x_z = a1
+        return res[::-1]
+

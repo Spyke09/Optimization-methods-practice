@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+import typing as tp
 
 from hw_potok.src import algo
 from hw_potok.src import  network_graph
@@ -191,6 +192,56 @@ class MinCostFlow(IMaximumFlowFinder):
                     r_e_id = network_graph.reverse_edge(edge_id)
                     network.set_edge_flow(r_e_id, network.get_edge_flow(r_e_id) - gamma)
                     self.logger.debug(f"Decrease along the edge {edge_id} by {gamma}.")
+
+            self.logger.debug(f"Current total cost: {network.get_total_cost()}")
+
+        self.logger.info(f"Ended finding min-cost max-flow")
+        self.logger.info(f"Final total cost: {network.get_total_cost()}")
+
+
+class MinCostFlowSP(IMaximumFlowFinder):
+    def __init__(self):
+        self.logger = logging.getLogger("MinCostFlow")
+
+    def __increase_edges(
+            self,
+            network: network_graph.SimpleNetwork,
+            r_network: network_graph.ResidualGraph,
+            path: tp.List[network_graph.Edge]):
+        gamma = r_network.get_edge_capacity(*(path[0]))
+        for edge_id, edge_type in path:
+            gamma = min(gamma, r_network.get_edge_capacity(edge_id, edge_type))
+
+        for edge_id, edge_type in path:
+            if edge_type == EdgeType.NORMAL:
+                network.set_edge_flow(edge_id, network.get_edge_flow(edge_id) + gamma)
+                self.logger.debug(f"Increase along the edge {edge_id} by {gamma}.")
+
+            if edge_type == EdgeType.INVERTED:
+                r_e_id = network_graph.reverse_edge(edge_id)
+                network.set_edge_flow(r_e_id, network.get_edge_flow(r_e_id) - gamma)
+                self.logger.debug(f"Decrease along the edge {edge_id} by {gamma}.")
+
+    def find(self, network: network_graph.SimpleNetwork):
+        self.logger.info("Start finding min-cost max-flow")
+        r_network = ResidualGraph(network)
+        while True:
+            cycle = algo.NegativeCycleFinder.find(r_network)
+            self.logger.debug(f"Next negative cycle: {[(i[0], i[1].name) for i in cycle]}")
+            if not cycle:
+                break
+
+            self.__increase_edges(network, r_network, cycle)
+
+            self.logger.debug(f"Current total cost: {network.get_total_cost()}")
+
+        while True:
+            min_path = algo.MinCostPathFinder.find(r_network)
+            self.logger.debug(f"Next shortest path: {[(i[0], i[1].name) for i in min_path]}")
+            if not min_path:
+                break
+
+            self.__increase_edges(network, r_network, min_path)
 
             self.logger.debug(f"Current total cost: {network.get_total_cost()}")
 
