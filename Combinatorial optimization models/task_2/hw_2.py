@@ -26,7 +26,7 @@ class AssignmentsProblem:
             raise ValueError("Param alpha should lie in [0, 1].")
 
         self._envr = coptpy.Envr()
-        self._logger = logging.getLogger("UniqueSolutionSolver")
+        self._logger = logging.getLogger("AssignmentsProblem")
         self._model = self._envr.createModel(name="AssignmentsProblem")
         self._model.setParam(coptpy.COPT.Param.Logging, COPT_LOG_LEVEL)
 
