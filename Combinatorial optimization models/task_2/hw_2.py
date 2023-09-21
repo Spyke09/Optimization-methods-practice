@@ -77,8 +77,11 @@ class AssignmentsProblem:
         # ban overlapping flights within the gate
         for i in n_range:
             for j in n_range:
-                if i < j and (
-                        (ad[j - 1][1] >= ad[i - 1][1] > ad[j - 1][0]) or (ad[i - 1][1] > ad[j - 1][0] >= ad[i - 1][0])):
+                if i > j and (
+                        (ad[j - 1][1] >= ad[i - 1][1] > ad[j - 1][0]) or
+                        (ad[i - 1][1] > ad[j - 1][0] >= ad[i - 1][0]) or
+                        (ad[i - 1][1] >= ad[j - 1][1] > ad[i - 1][0]) or
+                        (ad[j - 1][1] > ad[i - 1][0] >= ad[j - 1][0])):
                     self._model.addConstrs(
                         x[i, k] + x[j, k] <= 1
                         for k in m_range
