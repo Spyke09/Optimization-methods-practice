@@ -78,7 +78,7 @@ class AssignmentsProblem:
         for i in n_range:
             for j in n_range:
                 if i < j and (
-                        (ad[j - 1][1] > ad[i - 1][1] > ad[j - 1][0]) or (ad[i - 1][1] > ad[j - 1][1] > ad[i - 1][0])):
+                        (ad[j - 1][1] >= ad[i - 1][1] > ad[j - 1][0]) or (ad[i - 1][1] > ad[j - 1][0] >= ad[i - 1][0])):
                     self._model.addConstrs(
                         x[i, k] + x[j, k] <= 1
                         for k in m_range
@@ -93,11 +93,11 @@ class AssignmentsProblem:
             x = dict()
             for i in range(1, self._n + 1):
                 for j in range(1, self._m + 2):
-                    x[f"x({i},{j})"] = self._model.getVarByName(f"x({i},{j})").getInfo("value")
+                    x[(i, j)] = self._model.getVarByName(f"x({i},{j})").getInfo("value")
             return x
 
 
-def test():
+def test1():
     ap = AssignmentsProblem(
         10,
         3,
@@ -120,20 +120,28 @@ def test():
         0.5
     )
 
-    x = ap.solve()
+    x = [f"{j[0][0]} -> {j[0][1]}" for j in filter(lambda i: i[1] == 1, ap.solve().items())]
     print(f"x = {x}")
-    # x = {
-    #       'x(1,1)': 1.0, 'x(1,2)': 0.0, 'x(1,3)': 0.0, 'x(1,4)': 0.0,
-    #       'x(2,1)': 0.0, 'x(2,2)': 1.0, 'x(2,3)': 0.0, 'x(2,4)': 0.0,
-    #       'x(3,1)': 1.0, 'x(3,2)': 0.0, 'x(3,3)': 0.0, 'x(3,4)': 0.0,
-    #       'x(4,1)': 1.0, 'x(4,2)': 0.0, 'x(4,3)': 0.0, 'x(4,4)': 0.0,
-    #       'x(5,1)': 1.0, 'x(5,2)': 0.0, 'x(5,3)': 0.0, 'x(5,4)': 0.0,
-    #       'x(6,1)': 1.0, 'x(6,2)': 0.0, 'x(6,3)': 0.0, 'x(6,4)': 0.0,
-    #       'x(7,1)': 1.0, 'x(7,2)': 0.0, 'x(7,3)': 0.0, 'x(7,4)': 0.0,
-    #       'x(8,1)': 1.0, 'x(8,2)': 0.0, 'x(8,3)': 0.0, 'x(8,4)': 0.0,
-    #       'x(9,1)': 0.0, 'x(9,2)': 1.0, 'x(9,3)': 0.0, 'x(9,4)': 0.0,
-    #       'x(10,1)': 0.0, 'x(10,2)': 1.0, 'x(10,3)': 0.0, 'x(10,4)': 0.0
-    # }
+    # x = ['1 -> 1', '2 -> 2', '3 -> 1', '4 -> 3', '5 -> 1', '6 -> 1', '7 -> 1', '8 -> 1', '9 -> 2', '10 -> 2']
 
 
-test()
+def test2():
+    ap = AssignmentsProblem(
+        3,
+        2,
+        np.array([[2, 10], [9, 10], [9, 10]]),
+        np.array([[0., 19., 19., 60.], [19., 0., 6., 41.], [19., 6., 0., 41.],
+                  [60., 41., 41., 0.]]),
+        np.array([[0, 15, 60, 68],
+                  [15, 0, 43, 1],
+                  [60, 43, 0, 63],
+                  [68, 1, 63, 0]]),
+        0.5
+    )
+
+    x = [f"{j[0][0]} -> {j[0][1]}" for j in filter(lambda i: i[1] == 1, ap.solve().items())]
+    print(f"x = {x}")
+
+
+test1()
+test2()
