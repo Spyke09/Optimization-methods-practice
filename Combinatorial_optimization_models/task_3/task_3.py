@@ -26,43 +26,42 @@ class BaseSolution(AbstractSolution):
         self._graph = graph
         self._n = graph.shape[0]
 
-    def solve(self, it=10):
+    def solve(self):
         vertex_to_clique_id = [i for i in range(self._n)]
         clique_id_to_vertexes = {i: {i} for i in range(self._n)}
 
-        for _ in range(it):
-            for cur_cli_id in range(self._n):
-                for next_vertex in range(self._n):
-                    if next_vertex not in clique_id_to_vertexes[cur_cli_id]:
-                        next_cli_id = vertex_to_clique_id[next_vertex]
+        for cur_cli_id in range(self._n):
+            for next_vertex in range(self._n):
+                if next_vertex not in clique_id_to_vertexes[cur_cli_id]:
+                    next_cli_id = vertex_to_clique_id[next_vertex]
 
-                        delta = 0
-                        for i in clique_id_to_vertexes[next_cli_id]:
-                            delta -= self._graph[i, next_vertex]
-                        for i in clique_id_to_vertexes[cur_cli_id]:
-                            delta += self._graph[i, next_vertex]
+                    delta = 0
+                    for i in clique_id_to_vertexes[next_cli_id]:
+                        delta -= self._graph[i, next_vertex]
+                    for i in clique_id_to_vertexes[cur_cli_id]:
+                        delta += self._graph[i, next_vertex]
 
-                        if delta > 0:
-                            clique_id_to_vertexes[next_cli_id].remove(next_vertex)
-                            clique_id_to_vertexes[cur_cli_id].add(next_vertex)
+                    if delta > 0:
+                        clique_id_to_vertexes[next_cli_id].remove(next_vertex)
+                        clique_id_to_vertexes[cur_cli_id].add(next_vertex)
 
-                            vertex_to_clique_id[next_vertex] = cur_cli_id
+                        vertex_to_clique_id[next_vertex] = cur_cli_id
 
         return vertex_to_clique_id
 
 
 def test1():
-    graph = hw_2.CompleteGraphGen.generate(1000)
+    graph = hw_2.CompleteGraphGen.generate(10)
 
     base = BaseSolution(graph)
-    solution = base.solve(1)
+    solution = base.solve()
 
-    # hw2_solver = hw_2.CliquePartitioningProblem(graph)
-    # true_solution = hw2_solver.solve()
+    hw2_solver = hw_2.CliquePartitioningProblem(graph)
+    true_solution = hw2_solver.solve()
 
     print(f"obj: {base.obj_value(solution)}")
-    # print(f"true obj: {base.obj_value(true_solution)}")
-    # print(f"true_solution: {true_solution}")
+    print(f"true obj: {base.obj_value(true_solution)}")
+    print(f"true_solution: {true_solution}")
     print(f"solution: {solution}")
 
 

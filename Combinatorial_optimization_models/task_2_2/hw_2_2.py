@@ -16,7 +16,7 @@ class CompleteGraphGen:
         a = a + a.T
         for i in range(vertex_number):
             a[i, i] = 0
-        return a + a.T
+        return a
 
 
 class CliquePartitioningProblem:
