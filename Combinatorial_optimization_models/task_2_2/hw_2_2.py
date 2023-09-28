@@ -12,7 +12,11 @@ COPT_LOG_LEVEL = 0
 class CompleteGraphGen:
     @staticmethod
     def generate(vertex_number):
-        return np.random.uniform(-10, 10, (vertex_number, vertex_number))
+        a = np.random.uniform(-10, 10, (vertex_number, vertex_number))
+        a = a + a.T
+        for i in range(vertex_number):
+            a[i, i] = 0
+        return a + a.T
 
 
 class CliquePartitioningProblem:
@@ -41,7 +45,7 @@ class CliquePartitioningProblem:
             nameprefix="x"
         )
 
-        self._model.setObjective(sum(c_graph[i, j] * x[i, j] for i, j in self._range_2))
+        self._model.setObjective(sum(c_graph[i, j] * x[i, j] for i, j in self._range_2), coptpy.COPT.MAXIMIZE)
 
         self._model.addConstrs(
             x[i, j] + x[j, k] - x[i, k] <= 1
@@ -139,6 +143,3 @@ def test():
     print(f"Graph: {g}")
     print(f"Components: {x}")
     Visualizer.visualize(g, x, highlight_weights=False)
-
-
-test()
