@@ -41,7 +41,7 @@ class BaseSolver(AbstractSolver):
         if inplace:
             solution.clear()
             solution.extend(s)
-            c.clear()
+            clique_id_to_vertexes.clear()
             clique_id_to_vertexes.update(c)
 
         return s, c
