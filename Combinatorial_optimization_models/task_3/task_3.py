@@ -28,7 +28,7 @@ class BaseSolver(AbstractSolver):
         super(BaseSolver, self).__init__(graph)
 
     @staticmethod
-    def renumerate(solution):
+    def renumerate(solution, clique_id_to_vertexes, inplace=False):
         mapping = dict()
         c = 0
         for i in solution:
@@ -36,7 +36,15 @@ class BaseSolver(AbstractSolver):
                 mapping[i] = c
                 c += 1
 
-        return [mapping[i] for i in solution]
+        s = [mapping[i] for i in solution]
+        c = {mapping[i]: j for i, j in clique_id_to_vertexes.items() if len(j) > 0}
+        if inplace:
+            solution.clear()
+            solution.extend(s)
+            c.clear()
+            clique_id_to_vertexes.update(c)
+
+        return s, c
 
     def solve(self):
         vertex_to_clique_id = [i for i in range(self._n)]
@@ -59,7 +67,86 @@ class BaseSolver(AbstractSolver):
 
                         vertex_to_clique_id[next_vertex] = cur_cli_id
 
-        return self.renumerate(vertex_to_clique_id)
+        self.renumerate(vertex_to_clique_id, clique_id_to_vertexes, inplace=True)
+        return vertex_to_clique_id
+
+
+class Mutation:
+    @staticmethod
+    def move(vertex, clique_id, vertex_to_clique_id, clique_id_to_vertexes):
+        clique_id_v = vertex_to_clique_id[vertex]
+        if clique_id_v == clique_id:
+            return
+
+        vertex_to_clique_id[vertex] = clique_id
+        clique_id_to_vertexes[clique_id_v].remove(vertex)
+        clique_id_to_vertexes[clique_id].add(vertex)
+
+    @staticmethod
+    def separate(vertex, vertex_to_clique_id, clique_id_to_vertexes):
+        clique_id = vertex_to_clique_id[vertex]
+        clique_id_to_vertexes[clique_id].remove(vertex)
+
+        clique_id_v = max(vertex_to_clique_id) + 1
+        vertex_to_clique_id[vertex] = clique_id_v
+        clique_id_to_vertexes[clique_id_v] = {vertex}
+
+        if clique_id_v > len(vertex_to_clique_id):
+            BaseSolver.renumerate(vertex_to_clique_id, clique_id_to_vertexes, inplace=True)
+
+    @staticmethod
+    def swap(vertex_1, vertex_2, vertex_to_clique_id, clique_id_to_vertexes):
+        clique_id_1 = vertex_to_clique_id[vertex_1]
+        clique_id_2 = vertex_to_clique_id[vertex_2]
+        if clique_id_2 == clique_id_1:
+            return
+
+        Mutation.move(vertex_1, clique_id_2, vertex_to_clique_id, clique_id_to_vertexes)
+        Mutation.move(vertex_2, clique_id_1, vertex_to_clique_id, clique_id_to_vertexes)
+
+    # функции для расчета полезности мутирования без (до) самого мутирования
+    @staticmethod
+    def delta_move(vertex, clique_id, vertex_to_clique_id, clique_id_to_vertexes, graph):
+        clique_id_v = vertex_to_clique_id[vertex]
+        if clique_id_v == clique_id:
+            return 0
+
+        delta1 = 0
+        for i in clique_id_to_vertexes[clique_id_v]:
+            delta1 -= graph[vertex, i]
+
+        delta2 = 0
+        for i in clique_id_to_vertexes[clique_id]:
+            delta2 += graph[vertex, i]
+        return delta1 + delta2
+
+    @staticmethod
+    def delta_separate(vertex, vertex_to_clique_id, clique_id_to_vertexes, graph):
+        delta = 0
+        clique_id = vertex_to_clique_id[vertex]
+        for i in clique_id_to_vertexes[clique_id]:
+            delta -= graph[vertex, i]
+        return delta
+
+    @staticmethod
+    def delta_swap(vertex_1, vertex_2, vertex_to_clique_id, clique_id_to_vertexes, graph):
+        delta = 0
+        if vertex_to_clique_id[vertex_2] == vertex_to_clique_id[vertex_1]:
+            return delta
+
+        delta1 = Mutation.delta_move(
+            vertex_1,
+            vertex_to_clique_id[vertex_2],
+            vertex_to_clique_id,
+            clique_id_to_vertexes,
+            graph)
+        delta2 = Mutation.delta_move(
+            vertex_2,
+            vertex_to_clique_id[vertex_1],
+            vertex_to_clique_id,
+            clique_id_to_vertexes,
+            graph)
+        return delta1 + delta2 - 2 * graph[vertex_1, vertex_2]
 
 
 class LocalSearch(AbstractSolver):
@@ -79,62 +166,37 @@ class LocalSearch(AbstractSolver):
 
     # функции для мутирования
     def _move(self, vertex, clique_id):
-        clique_id_v = self._vertex_to_clique_id[vertex]
-        if clique_id_v == clique_id:
-            return
-
-        self._vertex_to_clique_id[vertex] = clique_id
-        self._clique_id_to_vertexes[clique_id_v].remove(vertex)
-        self._clique_id_to_vertexes[clique_id].add(vertex)
+        Mutation.move(vertex, clique_id, self._vertex_to_clique_id, self._clique_id_to_vertexes)
 
     def _separate(self, vertex):
-        clique_id = self._vertex_to_clique_id[vertex]
-        self._clique_id_to_vertexes[clique_id].remove(vertex)
-
-        clique_id_v = max(self._vertex_to_clique_id) + 1
-        self._vertex_to_clique_id[vertex] = clique_id_v
-        self._clique_id_to_vertexes[clique_id_v] = {vertex}
-        return None
+        Mutation.separate(vertex, self._vertex_to_clique_id, self._clique_id_to_vertexes)
 
     def _swap(self, vertex_1, vertex_2):
-        clique_id_1 = self._vertex_to_clique_id[vertex_1]
-        clique_id_2 = self._vertex_to_clique_id[vertex_2]
-        if clique_id_2 == clique_id_1:
-            return
-
-        self._move(vertex_1, clique_id_2)
-        self._move(vertex_2, clique_id_1)
+        Mutation.swap(vertex_1, vertex_2, self._vertex_to_clique_id, self._clique_id_to_vertexes)
 
     # функции для расчета полезности мутирования без (до) самого мутирования
     def _delta_move(self, vertex, clique_id):
-        clique_id_v = self._vertex_to_clique_id[vertex]
-        if clique_id_v == clique_id:
-            return 0
-
-        delta1 = 0
-        for i in self._clique_id_to_vertexes[clique_id_v]:
-            delta1 -= self._graph[vertex, i]
-
-        delta2 = 0
-        for i in self._clique_id_to_vertexes[clique_id]:
-            delta2 += self._graph[vertex, i]
-        return delta1 + delta2
+        return Mutation.delta_move(
+            vertex,
+            clique_id,
+            self._vertex_to_clique_id,
+            self._clique_id_to_vertexes,
+            self._graph)
 
     def _delta_separate(self, vertex):
-        delta = 0
-        clique_id = self._vertex_to_clique_id[vertex]
-        for i in self._clique_id_to_vertexes[clique_id]:
-            delta -= self._graph[vertex, i]
-        return delta
+        return Mutation.delta_separate(
+            vertex,
+            self._vertex_to_clique_id,
+            self._clique_id_to_vertexes,
+            self._graph)
 
     def _delta_swap(self, vertex_1, vertex_2):
-        delta = 0
-        if self._vertex_to_clique_id[vertex_2] == self._vertex_to_clique_id[vertex_1]:
-            return delta
-
-        delta1 = self._delta_move(vertex_1, self._vertex_to_clique_id[vertex_2])
-        delta2 = self._delta_move(vertex_2, self._vertex_to_clique_id[vertex_1])
-        return delta1 + delta2 - 2 * self._graph[vertex_1, vertex_2]
+        return Mutation.delta_swap(
+            vertex_1,
+            vertex_2,
+            self._vertex_to_clique_id,
+            self._clique_id_to_vertexes,
+            self._graph)
 
     def _strategy_1(self):
         for vertex in range(self._n):
@@ -232,23 +294,23 @@ def main_test():
     def temp_def(a1, a2):
         dtimes = np.array([0.0, 0.0])
         ds = np.array([0.0, 0.0])
-        times = np.array([0.0, 0.0])
         n = 50
         for test_number in range(n):
             graph = hw_2.CompleteGraphGen.generate(70)
             base = BaseSolver(graph)
             solution_1 = base.solve()
-            ls = LocalSearch(graph, solution_1)
 
+            ls = LocalSearch(graph, solution_1)
             st = time.time()
             solution_2 = ls.solve(1000, *a1)
-            p = time.time()
-            ls = LocalSearch(graph, solution_1)
-            p = time.time()
+            p1 = time.time()
 
+            ls = LocalSearch(graph, solution_1)
+            p2 = time.time()
             solution_3 = ls.solve(1000, *a2)
             fn = time.time()
-            dtimes += (p - st, fn - p)
+
+            dtimes += (p1 - st, fn - p2)
             s1 = base.obj_value(solution_1)
             ds += (base.obj_value(solution_2) - s1, base.obj_value(solution_3) - s1)
         dtimes /= n
@@ -269,4 +331,5 @@ def main_test():
     # Итого, ((a,b,c), first_stop) чуть лучше
 
 
-main_test()
+if __name__ == "__main__":
+    main_test()
