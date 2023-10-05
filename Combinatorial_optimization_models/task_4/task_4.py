@@ -1,8 +1,9 @@
 import abc
 import random
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
 import Combinatorial_optimization_models.task_2_2.hw_2_2 as hw_2
 import Combinatorial_optimization_models.task_3.task_3 as hw_3
 
@@ -113,6 +114,7 @@ class GeomTemp(AbstractSATemp):
         self._cur_temp *= self._alpha
         return self._cur_temp
 
+
 class LogTemp(AbstractSATemp):
     def __init__(self, alpha, init_temp):
         super(LogTemp, self).__init__(alpha, init_temp)
@@ -121,7 +123,8 @@ class LogTemp(AbstractSATemp):
         return self._init_temp / (1 + np.log(it) * self._alpha)
 
 
-def test(max_t, min_t, temp_f, show_q=True):
+def test(max_t, min_t, temp_f, show_q=False):
+    print(temp_f)
     graph = hw_2.CompleteGraphGen.generate(70)
     base = hw_3.BaseSolver(graph)
     solution_1 = base.solve()
@@ -133,7 +136,35 @@ def test(max_t, min_t, temp_f, show_q=True):
     if show_q:
         plt.plot(sa.obj_mem)
         plt.show()
-    print(f"Улучшение: {base.obj_value(solution_2)}")
+    print(f"Улучшение SA: {base.obj_value(solution_2)}")
+
+    ls = hw_3.LocalSearch(graph, solution_1)
+    solution_3 = ls.solve(1000, 1, 1)
+
+    print(f"Улучшение LS: {base.obj_value(solution_3)}\n")
+
+    # <__main__.LinearTemp object at 0x7f6921121ab0>
+    # База: 1642.530046205885
+    # Улучшение SA: 2025.4653792079635
+    # Улучшение LS: 2085.060150780179
+    #
+    # <__main__.QudraticTemp object at 0x7f691cb25a20>
+    # База: 1589.2322502379031
+    # Улучшение SA: 2008.8253483753867
+    # Улучшение LS: 1925.0064615462124
+    #
+    # <__main__.GeomTemp object at 0x7f691cb25a20>
+    # База: 1589.2322502379031
+    # Улучшение SA: 1855.5354931346335
+    # Улучшение LS: 1925.0064615462124
+    #
+    # <__main__.LogTemp object at 0x7f6913b64be0>
+    # База: 1589.2322502379031
+    # Улучшение SA: 1883.1816024348796
+    # Улучшение LS: 1925.0064615462124
+    #
+    #
+    # Process finished with exit code 0
 
 
 if __name__ == "__main__":
