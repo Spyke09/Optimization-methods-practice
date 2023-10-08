@@ -300,8 +300,8 @@ def test2():
     base = BaseSolver()
     base.solve(instance)
 
-    ls = LocalSearch()
-    instance_2 = ls.solve(instance, 10, 0, 0)
+    ls = LocalSearch(10, 0, 0)
+    instance_2 = ls.solve(instance)
 
     hw2_solver = hw_2.CliquePartitioningProblem(graph)
     true_solution = hw2_solver.solve()

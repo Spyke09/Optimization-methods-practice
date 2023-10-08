@@ -48,7 +48,8 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         ]
         return d_mut[mut_id](*args), args
 
-    def _mutate(self, instance, mut_id, args):
+    @staticmethod
+    def _mutate(instance, mut_id, args):
         mut = [
             instance.move,
             instance.separate,
