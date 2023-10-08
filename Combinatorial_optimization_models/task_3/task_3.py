@@ -3,232 +3,241 @@ from abc import ABC, abstractmethod
 import numpy as np
 import time
 import Combinatorial_optimization_models.task_2_2.hw_2_2 as hw_2
+import typing as tp
+
+CliqueId = int
+VertexId = int
 
 
-class AbstractSolver(ABC):
-    def __init__(self, graph):
-        self._graph = graph
-        self._n = graph.shape[0]
+class Instance:
+    def __init__(
+            self,
+            weight: np.array,
+            vertex_id_to_clique_id: tp.Optional[tp.List[CliqueId]] = None,
+            clique_id_to_vertexes: tp.Optional[tp.Dict[CliqueId, tp.Set[VertexId]]] = None,
+            base_solution_type=0
+    ):
+        self._weight = weight
+        self._n = weight.shape[0]
+        self._vertex_id_to_clique_id: tp.Optional[tp.List[CliqueId]] = None
+        self._clique_id_to_vertexes: tp.Optional[tp.Dict[CliqueId, tp.Set[VertexId]]] = None
 
-    def obj_value(self, sol):
+        if vertex_id_to_clique_id is not None:
+            self._vertex_id_to_clique_id = vertex_id_to_clique_id.copy()
+            if clique_id_to_vertexes is not None:
+                self._clique_id_to_vertexes = {i: j.copy() for i, j in clique_id_to_vertexes.items()}
+            else:
+                self._clique_id_to_vertexes = dict()
+                for vertex, clique in enumerate(self._vertex_id_to_clique_id):
+                    if clique not in self._clique_id_to_vertexes:
+                        self._clique_id_to_vertexes[clique] = {vertex}
+                    else:
+                        self._clique_id_to_vertexes[clique].add(vertex)
+        else:
+            if base_solution_type == 0:
+                self._vertex_id_to_clique_id = [i for i in range(self._n)]
+                self._clique_id_to_vertexes = {i: {i} for i in range(self._n)}
+            if base_solution_type == 1:
+                self._vertex_id_to_clique_id = [0 for _ in range(self._n)]
+                self._clique_id_to_vertexes = {0: set(range(self._n))}
+
+        self._vacant_clique_id = None
+
+    def copy(self):
+        return Instance(
+            self._weight,
+            self._vertex_id_to_clique_id.copy()
+        )
+
+    @property
+    def vertex_number(self):
+        return self._n
+
+    def in_one_clique_q(self, *args):
+        if len(args) == 1:
+            v1, v2 = args[0]
+        elif len(args) == 2:
+            v1, v2 = args
+        else:
+            raise ValueError
+        return self._vertex_id_to_clique_id[v1] == self._vertex_id_to_clique_id[v2]
+
+    def vertex_in_clique_q(self, vertex_id, clique_id):
+        return self._vertex_id_to_clique_id[vertex_id] == clique_id
+
+    def weight(self, *args):
+        if len(args) == 1:
+            v1, v2 = args[0]
+        elif len(args) == 2:
+            v1, v2 = args
+        else:
+            raise ValueError
+        return self._weight[v1, v2]
+
+    def edge_iter(self):
+        for v1 in range(self.vertex_number):
+            for v2 in range(self.vertex_number):
+                if v1 < v2:
+                    yield v1, v2
+
+    def clique_id_iter(self):
+        for i in self._clique_id_to_vertexes:
+            yield i
+
+    def clique_iter(self):
+        for i, j in self._clique_id_to_vertexes.items():
+            yield i
+
+    def obj_value(self):
         val = 0
-        for i in range(self._n):
-            for j in range(self._n):
-                if i < j and sol[i] == sol[j]:
-                    val += self._graph[i, j]
+        for edge in self.edge_iter():
+            if self.in_one_clique_q(edge):
+                val += self.weight(edge)
         return val
 
-    @abstractmethod
-    def solve(self):
-        raise NotImplementedError()
-
-
-class BaseSolver(AbstractSolver):
-    def __init__(self, graph):
-        super(BaseSolver, self).__init__(graph)
-
-    @staticmethod
-    def renumerate(solution, clique_id_to_vertexes, inplace=False):
+    def renumerate(self):
         mapping = dict()
         c = 0
-        for i in solution:
+        for i in self._vertex_id_to_clique_id:
             if i not in mapping:
                 mapping[i] = c
                 c += 1
 
-        s = [mapping[i] for i in solution]
-        c = {mapping[i]: j for i, j in clique_id_to_vertexes.items() if len(j) > 0}
-        if inplace:
-            solution.clear()
-            solution.extend(s)
-            clique_id_to_vertexes.clear()
-            clique_id_to_vertexes.update(c)
+        self._vertex_id_to_clique_id = [mapping[i] for i in self._vertex_id_to_clique_id]
+        self._vertex_id_to_clique_id = {mapping[i]: j for i, j in self._clique_id_to_vertexes.items() if len(j) > 0}
 
-        return s, c
+    def get_clique_id(self, vertex_id):
+        return self._vertex_id_to_clique_id[vertex_id]
 
-    def solve(self):
-        vertex_to_clique_id = [i for i in range(self._n)]
-        clique_id_to_vertexes = {i: {i} for i in range(self._n)}
+    def get_vertexes(self, clique_id):
+        for i in self._clique_id_to_vertexes[clique_id]:
+            yield i
 
-        for cur_cli_id in range(self._n):
-            for next_vertex in range(self._n):
-                if next_vertex not in clique_id_to_vertexes[cur_cli_id]:
-                    next_cli_id = vertex_to_clique_id[next_vertex]
+    def move(self, vertex_id, clique_id):
+        old_cli_id = self._vertex_id_to_clique_id[vertex_id]
+        self._clique_id_to_vertexes[old_cli_id].remove(vertex_id)
+        if len(self._clique_id_to_vertexes[old_cli_id]) == 0:
+            self._vacant_clique_id = old_cli_id
+        self._clique_id_to_vertexes[clique_id].add(vertex_id)
 
-                    delta = 0
-                    for i in clique_id_to_vertexes[next_cli_id]:
-                        delta -= self._graph[i, next_vertex]
-                    for i in clique_id_to_vertexes[cur_cli_id]:
-                        delta += self._graph[i, next_vertex]
+        self._vertex_id_to_clique_id[vertex_id] = clique_id
 
-                    if delta > 0:
-                        clique_id_to_vertexes[next_cli_id].remove(next_vertex)
-                        clique_id_to_vertexes[cur_cli_id].add(next_vertex)
-
-                        vertex_to_clique_id[next_vertex] = cur_cli_id
-
-        self.renumerate(vertex_to_clique_id, clique_id_to_vertexes, inplace=True)
-        return vertex_to_clique_id
-
-
-class Mutation:
-    @staticmethod
-    def move(vertex, clique_id, vertex_to_clique_id, clique_id_to_vertexes):
-        clique_id_v = vertex_to_clique_id[vertex]
-        if clique_id_v == clique_id:
+    def separate(self, vertex):
+        clique_id = self._vertex_id_to_clique_id[vertex]
+        if len(self._clique_id_to_vertexes[clique_id]) == 1:
             return
 
-        vertex_to_clique_id[vertex] = clique_id
-        clique_id_to_vertexes[clique_id_v].remove(vertex)
-        clique_id_to_vertexes[clique_id].add(vertex)
+        self._clique_id_to_vertexes[clique_id].remove(vertex)
 
-    @staticmethod
-    def separate(vertex, vertex_to_clique_id, clique_id_to_vertexes):
-        clique_id = vertex_to_clique_id[vertex]
-        clique_id_to_vertexes[clique_id].remove(vertex)
+        clique_id_v = self._vacant_clique_id
+        self._vertex_id_to_clique_id[vertex] = clique_id_v
+        self._clique_id_to_vertexes[clique_id_v] = {vertex}
 
-        clique_id_v = max(vertex_to_clique_id) + 1
-        vertex_to_clique_id[vertex] = clique_id_v
-        clique_id_to_vertexes[clique_id_v] = {vertex}
-
-        if clique_id_v > len(vertex_to_clique_id):
-            BaseSolver.renumerate(vertex_to_clique_id, clique_id_to_vertexes, inplace=True)
-
-    @staticmethod
-    def swap(vertex_1, vertex_2, vertex_to_clique_id, clique_id_to_vertexes):
-        clique_id_1 = vertex_to_clique_id[vertex_1]
-        clique_id_2 = vertex_to_clique_id[vertex_2]
+    def swap(self, vertex_1, vertex_2):
+        clique_id_1 = self._vertex_id_to_clique_id[vertex_1]
+        clique_id_2 = self._vertex_id_to_clique_id[vertex_2]
         if clique_id_2 == clique_id_1:
             return
 
-        Mutation.move(vertex_1, clique_id_2, vertex_to_clique_id, clique_id_to_vertexes)
-        Mutation.move(vertex_2, clique_id_1, vertex_to_clique_id, clique_id_to_vertexes)
+        self.move(vertex_1, clique_id_2)
+        self.move(vertex_2, clique_id_1)
 
-    # функции для расчета полезности мутирования без (до) самого мутирования
-    @staticmethod
-    def delta_move(vertex, clique_id, vertex_to_clique_id, clique_id_to_vertexes, graph):
-        clique_id_v = vertex_to_clique_id[vertex]
+    def delta_move(self, vertex, clique_id):
+        clique_id_v = self._vertex_id_to_clique_id[vertex]
         if clique_id_v == clique_id:
             return 0
 
         delta1 = 0
-        for i in clique_id_to_vertexes[clique_id_v]:
-            delta1 -= graph[vertex, i]
+        for i in self._clique_id_to_vertexes[clique_id_v]:
+            delta1 -= self._weight[vertex, i]
 
         delta2 = 0
-        for i in clique_id_to_vertexes[clique_id]:
-            delta2 += graph[vertex, i]
+        for i in self._clique_id_to_vertexes[clique_id]:
+            delta2 += self._weight[vertex, i]
         return delta1 + delta2
 
-    @staticmethod
-    def delta_separate(vertex, vertex_to_clique_id, clique_id_to_vertexes, graph):
+    def delta_separate(self, vertex):
         delta = 0
-        clique_id = vertex_to_clique_id[vertex]
-        for i in clique_id_to_vertexes[clique_id]:
-            delta -= graph[vertex, i]
+        clique_id = self._vertex_id_to_clique_id[vertex]
+        for i in self._clique_id_to_vertexes[clique_id]:
+            delta -= self._weight[vertex, i]
         return delta
 
-    @staticmethod
-    def delta_swap(vertex_1, vertex_2, vertex_to_clique_id, clique_id_to_vertexes, graph):
+    def delta_swap(self, vertex_1, vertex_2):
         delta = 0
-        if vertex_to_clique_id[vertex_2] == vertex_to_clique_id[vertex_1]:
+        if self._vertex_id_to_clique_id[vertex_2] == self._vertex_id_to_clique_id[vertex_1]:
             return delta
 
-        delta1 = Mutation.delta_move(
+        delta1 = self.delta_move(
             vertex_1,
-            vertex_to_clique_id[vertex_2],
-            vertex_to_clique_id,
-            clique_id_to_vertexes,
-            graph)
-        delta2 = Mutation.delta_move(
+            self._vertex_id_to_clique_id[vertex_2]
+        )
+        delta2 = self.delta_move(
             vertex_2,
-            vertex_to_clique_id[vertex_1],
-            vertex_to_clique_id,
-            clique_id_to_vertexes,
-            graph)
-        return delta1 + delta2 - 2 * graph[vertex_1, vertex_2]
+            self._vertex_id_to_clique_id[vertex_1],
+        )
+        return delta1 + delta2 - 2 * self._weight[vertex_1, vertex_2]
+
+
+class AbstractSolver(ABC):
+    @abstractmethod
+    def solve(self, instance: Instance):
+        raise NotImplementedError()
+
+
+class BaseSolver(AbstractSolver):
+    def solve(self, instance):
+        n = instance.vertex_number
+
+        for cur_cli_id in range(n):
+            for next_vertex in range(n):
+                if not instance.vertex_in_clique_q(next_vertex, cur_cli_id):
+                    next_cli_id = instance.get_clique_id(next_vertex)
+
+                    delta = 0
+                    for i in instance.get_vertexes(next_cli_id):
+                        delta -= instance.weight(i, next_vertex)
+                    for i in instance.get_vertexes(cur_cli_id):
+                        delta += instance.weight(i, next_vertex)
+
+                    if delta > 0:
+                        instance.move(next_vertex, cur_cli_id)
+
+        return instance
 
 
 class LocalSearch(AbstractSolver):
-    def __init__(self, graph, base_solution):
-        super(LocalSearch, self).__init__(graph)
-        self._vertex_to_clique_id = base_solution.copy()
-        self._clique_id_to_vertexes = dict()
+    @staticmethod
+    def _strategy_1(instance):
+        for vertex in range(instance.vertex_number):
+            for clique in instance.clique_id_iter():
+                yield instance.delta_move(vertex, clique), instance.move, vertex, clique
 
-        for vertex, clique in enumerate(base_solution):
-            if clique not in self._clique_id_to_vertexes:
-                self._clique_id_to_vertexes[clique] = set()
-            self._clique_id_to_vertexes[clique].add(vertex)
-
-    @property
-    def _clique_id_set(self):
-        return self._clique_id_to_vertexes.keys()
-
-    # функции для мутирования
-    def _move(self, vertex, clique_id):
-        Mutation.move(vertex, clique_id, self._vertex_to_clique_id, self._clique_id_to_vertexes)
-
-    def _separate(self, vertex):
-        Mutation.separate(vertex, self._vertex_to_clique_id, self._clique_id_to_vertexes)
-
-    def _swap(self, vertex_1, vertex_2):
-        Mutation.swap(vertex_1, vertex_2, self._vertex_to_clique_id, self._clique_id_to_vertexes)
-
-    # функции для расчета полезности мутирования без (до) самого мутирования
-    def _delta_move(self, vertex, clique_id):
-        return Mutation.delta_move(
-            vertex,
-            clique_id,
-            self._vertex_to_clique_id,
-            self._clique_id_to_vertexes,
-            self._graph)
-
-    def _delta_separate(self, vertex):
-        return Mutation.delta_separate(
-            vertex,
-            self._vertex_to_clique_id,
-            self._clique_id_to_vertexes,
-            self._graph)
-
-    def _delta_swap(self, vertex_1, vertex_2):
-        return Mutation.delta_swap(
-            vertex_1,
-            vertex_2,
-            self._vertex_to_clique_id,
-            self._clique_id_to_vertexes,
-            self._graph)
-
-    def _strategy_1(self):
-        for vertex in range(self._n):
-            for clique in self._clique_id_set:
-                yield self._delta_move(vertex, clique), self._move, vertex, clique
-
-        for vertex in range(self._n):
-            yield self._delta_separate(vertex), self._separate, vertex
-
-    def _strategy_2(self):
-        for i in self._strategy_1():
-            yield i
-
-        for i in range(self._n):
-            for j in range(self._n):
-                if i < j:
-                    yield self._delta_swap(i, j), self._swap, i, j
+        for vertex in range(instance.vertex_number):
+            yield instance.delta_separate(vertex), instance.separate, vertex
 
     @staticmethod
-    def _step_stop_first(strategy):
-        for delta, action, *args in strategy():
+    def _strategy_2(instance):
+        for i in LocalSearch._strategy_1(instance):
+            yield i
+
+        for v1, v2 in instance.edge_iter():
+            yield instance.delta_swap(v1, v2), instance.swap, v1, v2
+
+    @staticmethod
+    def _step_stop_first(instance: Instance, strategy):
+        for delta, action, *args in strategy(instance):
             if delta > 0:
                 action(*args)
                 return delta
         return None
 
     @staticmethod
-    def _step_greed(strategy):
+    def _step_greed(instance: Instance, strategy):
         best_delta = 0
         next_action = None
         next_args = None
-        for delta, action, *args in strategy():
+        for delta, action, *args in strategy(instance):
             if delta > best_delta:
                 best_delta = delta
                 next_action = action
@@ -240,48 +249,52 @@ class LocalSearch(AbstractSolver):
         else:
             return None
 
-    def solve(self, step_number=10, strategy_id=0, step_id=0):
-        strategy = [self._strategy_1, self._strategy_2]
-        step = [self._step_greed, self._step_stop_first]
+    def solve(self, instance, step_number=10, strategy_id=0, step_id=0):
+
+        strategy = [self._strategy_1, self._strategy_2][strategy_id]
+        step = [self._step_greed, self._step_stop_first][step_id]
 
         for i in range(step_number):
-            res = step[step_id](strategy[strategy_id])
+            res = step(instance, strategy)
             if res is None:
                 break
 
-        return self._vertex_to_clique_id
+        return instance
 
 
 def test1():
     graph = hw_2.CompleteGraphGen.generate(10)
+    instance = Instance(graph)
 
-    base = BaseSolver(graph)
-    solution = base.solve()
+    base = BaseSolver()
+    base.solve(instance)
 
     hw2_solver = hw_2.CliquePartitioningProblem(graph)
     true_solution = hw2_solver.solve()
+    instance_2 = Instance(graph, true_solution)
 
-    print(f"obj: {base.obj_value(solution)}")
-    print(f"true obj: {base.obj_value(true_solution)}")
-    print(f"true_solution: {true_solution}")
-    print(f"solution:      {solution}")
+    print(f"obj: {instance.obj_value()}")
+    print(f"true obj: {instance_2.obj_value()}")
 
 
 def test2():
     graph = hw_2.CompleteGraphGen.generate(10)
+    instance = Instance(graph)
 
-    base = BaseSolver(graph)
-    solution_1 = base.solve()
+    base = BaseSolver()
+    base.solve(instance)
 
-    ls = LocalSearch(graph, solution_1)
-    solution_2 = ls.solve(1000, 0, 1)
+    ls = LocalSearch()
+    instance_2 = instance.copy()
+    ls.solve(instance_2, 1000, 0, 1)
 
     hw2_solver = hw_2.CliquePartitioningProblem(graph)
     true_solution = hw2_solver.solve()
+    instance_3 = Instance(graph, true_solution)
 
-    print(f"obj: {base.obj_value(solution_1)}")
-    print(f"obj: {base.obj_value(solution_2)}")
-    print(f"true_solution: {base.obj_value(true_solution)}")
+    print(f"obj: {instance.obj_value()}")
+    print(f"obj: {instance_2.obj_value()}")
+    print(f"true_solution: {instance_3.obj_value()}")
 
 
 def main_test():
@@ -297,22 +310,22 @@ def main_test():
         n = 50
         for test_number in range(n):
             graph = hw_2.CompleteGraphGen.generate(70)
-            base = BaseSolver(graph)
-            solution_1 = base.solve()
+            instance = Instance(graph)
+            base = BaseSolver()
+            base.solve(instance)
 
-            ls = LocalSearch(graph, solution_1)
+            ls = LocalSearch()
             st = time.time()
-            solution_2 = ls.solve(1000, *a1)
+            instance_2 = ls.solve(instance.copy(), *a1)
             p1 = time.time()
 
-            ls = LocalSearch(graph, solution_1)
             p2 = time.time()
-            solution_3 = ls.solve(1000, *a2)
+            instance_3 = ls.solve(instance.copy(), 1000, *a2)
             fn = time.time()
 
             dtimes += (p1 - st, fn - p2)
-            s1 = base.obj_value(solution_1)
-            ds += (base.obj_value(solution_2) - s1, base.obj_value(solution_3) - s1)
+            s1 = instance.obj_value()
+            ds += (instance_2.obj_value() - s1, instance_3.obj_value() - s1)
         dtimes /= n
         print(f"{a1} VS {a2} time: {dtimes}")
         print(f"{a1} VS {a2} obj: {ds}")
