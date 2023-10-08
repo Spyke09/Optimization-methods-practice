@@ -1,9 +1,10 @@
+import time
+import typing as tp
 from abc import ABC, abstractmethod
 
 import numpy as np
-import time
+
 import Combinatorial_optimization_models.task_2_2.hw_2_2 as hw_2
-import typing as tp
 
 CliqueId = int
 VertexId = int
@@ -41,7 +42,14 @@ class Instance:
                 self._vertex_id_to_clique_id = [0 for _ in range(self._n)]
                 self._clique_id_to_vertexes = {0: set(range(self._n))}
 
-        self._vacant_clique_id = None
+        self.renumerate()
+
+    def _mex(self):
+        m = 0
+        x = {i for i, j in self._clique_id_to_vertexes.items() if len(j) > 0}
+        while m in x:
+            m += 1
+        return m
 
     def copy(self):
         return Instance(
@@ -104,7 +112,7 @@ class Instance:
                 c += 1
 
         self._vertex_id_to_clique_id = [mapping[i] for i in self._vertex_id_to_clique_id]
-        self._vertex_id_to_clique_id = {mapping[i]: j for i, j in self._clique_id_to_vertexes.items() if len(j) > 0}
+        self._clique_id_to_vertexes = {mapping[i]: j for i, j in self._clique_id_to_vertexes.items() if len(j) > 0}
 
     def get_clique_id(self, vertex_id):
         return self._vertex_id_to_clique_id[vertex_id]
@@ -116,8 +124,7 @@ class Instance:
     def move(self, vertex_id, clique_id):
         old_cli_id = self._vertex_id_to_clique_id[vertex_id]
         self._clique_id_to_vertexes[old_cli_id].remove(vertex_id)
-        if len(self._clique_id_to_vertexes[old_cli_id]) == 0:
-            self._vacant_clique_id = old_cli_id
+
         self._clique_id_to_vertexes[clique_id].add(vertex_id)
 
         self._vertex_id_to_clique_id[vertex_id] = clique_id
@@ -128,8 +135,7 @@ class Instance:
             return
 
         self._clique_id_to_vertexes[clique_id].remove(vertex)
-
-        clique_id_v = self._vacant_clique_id
+        clique_id_v = self._mex()
         self._vertex_id_to_clique_id[vertex] = clique_id_v
         self._clique_id_to_vertexes[clique_id_v] = {vertex}
 
@@ -154,6 +160,7 @@ class Instance:
         delta2 = 0
         for i in self._clique_id_to_vertexes[clique_id]:
             delta2 += self._weight[vertex, i]
+
         return delta1 + delta2
 
     def delta_separate(self, vertex):
@@ -161,6 +168,7 @@ class Instance:
         clique_id = self._vertex_id_to_clique_id[vertex]
         for i in self._clique_id_to_vertexes[clique_id]:
             delta -= self._weight[vertex, i]
+
         return delta
 
     def delta_swap(self, vertex_1, vertex_2):
@@ -176,6 +184,7 @@ class Instance:
             vertex_2,
             self._vertex_id_to_clique_id[vertex_1],
         )
+
         return delta1 + delta2 - 2 * self._weight[vertex_1, vertex_2]
 
 
@@ -187,6 +196,7 @@ class AbstractSolver(ABC):
 
 class BaseSolver(AbstractSolver):
     def solve(self, instance):
+        instance = instance.copy()
         n = instance.vertex_number
 
         for cur_cli_id in range(n):
@@ -207,6 +217,11 @@ class BaseSolver(AbstractSolver):
 
 
 class LocalSearch(AbstractSolver):
+    def __init__(self, step_number=10, strategy_id=0, step_id=0):
+        self._step_number = step_number
+        self._strategy_id = strategy_id
+        self._step_id = step_id
+
     @staticmethod
     def _strategy_1(instance):
         for vertex in range(instance.vertex_number):
@@ -249,12 +264,13 @@ class LocalSearch(AbstractSolver):
         else:
             return None
 
-    def solve(self, instance, step_number=10, strategy_id=0, step_id=0):
+    def solve(self, instance):
+        instance = instance.copy()
 
-        strategy = [self._strategy_1, self._strategy_2][strategy_id]
-        step = [self._step_greed, self._step_stop_first][step_id]
+        strategy = [self._strategy_1, self._strategy_2][self._strategy_id]
+        step = [self._step_greed, self._step_stop_first][self._step_id]
 
-        for i in range(step_number):
+        for i in range(self._step_number):
             res = step(instance, strategy)
             if res is None:
                 break
@@ -285,8 +301,7 @@ def test2():
     base.solve(instance)
 
     ls = LocalSearch()
-    instance_2 = instance.copy()
-    ls.solve(instance_2, 10, 0, 0)
+    instance_2 = ls.solve(instance, 10, 0, 0)
 
     hw2_solver = hw_2.CliquePartitioningProblem(graph)
     true_solution = hw2_solver.solve()
@@ -315,15 +330,14 @@ def main_test():
             base.solve(instance)
             s1 = instance.obj_value()
 
-            ls = LocalSearch()
-            instance_2 = instance.copy()
+            ls = LocalSearch(10, *a1)
             st = time.time()
-            ls.solve(instance_2, 10, *a1)
+            instance_2 = ls.solve(instance)
             p1 = time.time()
 
-            instance_3 = instance.copy()
+            ls = LocalSearch(1, *a2)
             p2 = time.time()
-            ls.solve(instance_3, 1, *a2)
+            instance_3 = ls.solve(instance)
             fn = time.time()
 
             dtimes += (p1 - st, fn - p2)

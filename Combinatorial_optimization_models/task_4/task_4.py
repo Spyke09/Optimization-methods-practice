@@ -9,12 +9,7 @@ import Combinatorial_optimization_models.task_3.task_3 as hw_3
 
 
 class SimulatedAnnealing(hw_3.AbstractSolver):
-    def __init__(self, graph, base_solution, temp_func, t_min=1., t_max=10000., seed=42):
-        super(SimulatedAnnealing, self).__init__(graph)
-        self._vertex_to_clique_id = base_solution.copy()
-        self._clique_id_to_vertexes = dict()
-        self._d_mut = [hw_3.Mutation.delta_move, hw_3.Mutation.delta_separate, hw_3.Mutation.delta_swap]
-        self._mut = [hw_3.Mutation.move, hw_3.Mutation.separate, hw_3.Mutation.swap]
+    def __init__(self, temp_func, t_min=1., t_max=10000., seed=42):
         self._t_max = t_max
         self._t_min = t_min
         self._temp_func = temp_func
@@ -24,59 +19,68 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         random.seed(seed)
         np.random.seed(seed)
 
-        for vertex, clique in enumerate(base_solution):
-            if clique not in self._clique_id_to_vertexes:
-                self._clique_id_to_vertexes[clique] = set()
-            self._clique_id_to_vertexes[clique].add(vertex)
-
     @staticmethod
     def _get_mutation_id():
         return random.randint(0, 2)
 
-    def _get_delta(self, mut_id, s_current, ctv):
-        first_args = [
-            (random.randint(0, self._n - 1), random.choice(list(ctv.keys())), ),
-            (random.randint(0, self._n - 1), ),
-            (random.randint(0, self._n - 1), random.randint(0, self._n - 1), )
-        ][mut_id]
-        rest_args = s_current, ctv, self._graph
-        return self._d_mut[mut_id](*first_args, *rest_args), first_args
-
-    def _mutate(self, mut_id, s_current, ctv, first_args):
-        rest_args = s_current, ctv
-        self._mut[mut_id](*first_args, *rest_args)
-        return rest_args
+    @staticmethod
+    def _get_random_vertex_id(instance: hw_3.Instance):
+        return random.randint(0, instance.vertex_number - 1)
 
     @staticmethod
-    def _get_copy_of_solution(vertex_to_clique_id, clique_id_to_vertexes):
-        return vertex_to_clique_id.copy(), {i: j.copy() for i, j in clique_id_to_vertexes.items()}
+    def _get_random_clique_id(instance: hw_3.Instance):
+        clique = list(instance.clique_id_iter())
+        return random.choice(clique)
 
-    def solve(self):
+    def _get_delta(self, instance, mut_id):
+        rvf = self._get_random_vertex_id
+        rcf = self._get_random_clique_id
+        args = [
+            (rvf(instance), rcf(instance)),
+            (rvf(instance),),
+            (rvf(instance), rvf(instance))
+        ][mut_id]
 
+        d_mut = [
+            instance.delta_move,
+            instance.delta_separate,
+            instance.delta_swap
+        ]
+        return d_mut[mut_id](*args), args
+
+    def _mutate(self, instance, mut_id, args):
+        mut = [
+            instance.move,
+            instance.separate,
+            instance.swap
+        ]
+        mut[mut_id](*args)
+
+    def solve(self, instance):
         t_current = self._t_max
-        s_best = self._vertex_to_clique_id, self._clique_id_to_vertexes
-        s_best_obj = self.obj_value(s_best[0])
+        s_best = instance.copy()
+        s_best_obj = instance.obj_value()
 
-        s_current = self._get_copy_of_solution(*s_best)
+        s_current = instance.copy()
         s_cur_obj = s_best_obj
 
         it = 1
         while t_current > self._t_min:
             mut_id = self._get_mutation_id()
-            delta_e, args = self._get_delta(mut_id, *s_current)
+            delta_e, args = self._get_delta(s_current, mut_id)
 
             if delta_e > 0 or (delta_e < 0 and random.uniform(0, 1) < np.exp(delta_e / t_current)):
-                s_current = self._mutate(mut_id, *s_current, args)
+                self._mutate(s_current, mut_id,  args)
                 s_cur_obj += delta_e
 
             t_current = self._temp_func(it)
             self.obj_mem.append(s_cur_obj)
             if s_cur_obj > s_best_obj:
-                s_best = s_current
+                s_best = s_current.copy()
 
             it += 1
 
-        return s_best[0]
+        return s_best
 
 
 class AbstractSATemp:
@@ -126,22 +130,31 @@ class LogTemp(AbstractSATemp):
 def test(max_t, min_t, temp_f, show_q=False):
     print(temp_f)
     graph = hw_2.CompleteGraphGen.generate(70)
-    base = hw_3.BaseSolver(graph)
-    solution_1 = base.solve()
-    print(f"База: {base.obj_value(solution_1)}")
+    instance = hw_3.Instance(graph)
 
-    sa = SimulatedAnnealing(graph, solution_1, temp_f, min_t, max_t)
-    solution_2 = sa.solve()
+    base = hw_3.BaseSolver()
+    solution = base.solve(instance)
+    print(f"База: {solution.obj_value()}")
+
+    sa = SimulatedAnnealing(temp_f, min_t, max_t)
+    solution_2 = sa.solve(solution)
 
     if show_q:
         plt.plot(sa.obj_mem)
         plt.show()
-    print(f"Улучшение SA: {base.obj_value(solution_2)}")
+    print(f"Улучшение SA: {solution_2.obj_value()}")
 
-    ls = hw_3.LocalSearch(graph, solution_1)
-    solution_3 = ls.solve(1000, 1, 1)
+    ls = hw_3.LocalSearch(1000, 1, 1)
+    solution_3 = ls.solve(solution)
 
-    print(f"Улучшение LS: {base.obj_value(solution_3)}\n")
+    print(f"Улучшение LS: {solution_3.obj_value()}\n")
+
+
+if __name__ == "__main__":
+    test(10, 1, LinearTemp(0.0001, 10))
+    test(10, 0.01, QudraticTemp(0.000001, 10))
+    test(10, 0.01, GeomTemp(0.9999, 10))
+    test(1, 0.01, LogTemp(9.9, 1))
 
     # <__main__.LinearTemp object at 0x7f6921121ab0>
     # База: 1642.530046205885
@@ -165,10 +178,3 @@ def test(max_t, min_t, temp_f, show_q=False):
     #
     #
     # Process finished with exit code 0
-
-
-if __name__ == "__main__":
-    test(10, 1, LinearTemp(0.0001, 10))
-    test(10, 0.01, QudraticTemp(0.000001, 10))
-    test(10, 0.01, GeomTemp(0.9999, 10))
-    test(1, 0.01, LogTemp(9.9, 1))
