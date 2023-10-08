@@ -286,7 +286,7 @@ def test2():
 
     ls = LocalSearch()
     instance_2 = instance.copy()
-    ls.solve(instance_2, 1000, 0, 1)
+    ls.solve(instance_2, 10, 0, 0)
 
     hw2_solver = hw_2.CliquePartitioningProblem(graph)
     true_solution = hw2_solver.solve()
@@ -309,22 +309,25 @@ def main_test():
         ds = np.array([0.0, 0.0])
         n = 50
         for test_number in range(n):
-            graph = hw_2.CompleteGraphGen.generate(70)
+            graph = hw_2.CompleteGraphGen.generate(50)
             instance = Instance(graph)
             base = BaseSolver()
             base.solve(instance)
+            s1 = instance.obj_value()
 
             ls = LocalSearch()
+            instance_2 = instance.copy()
             st = time.time()
-            instance_2 = ls.solve(instance.copy(), *a1)
+            ls.solve(instance_2, 10, *a1)
             p1 = time.time()
 
+            instance_3 = instance.copy()
             p2 = time.time()
-            instance_3 = ls.solve(instance.copy(), 1000, *a2)
+            ls.solve(instance_3, 1, *a2)
             fn = time.time()
 
             dtimes += (p1 - st, fn - p2)
-            s1 = instance.obj_value()
+
             ds += (instance_2.obj_value() - s1, instance_3.obj_value() - s1)
         dtimes /= n
         print(f"{a1} VS {a2} time: {dtimes}")
