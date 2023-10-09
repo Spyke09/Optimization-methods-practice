@@ -33,32 +33,23 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         return random.choice(clique)
 
     def _get_delta(self, instance, mut_id):
-        rvf = self._get_random_vertex_id
-        rcf = self._get_random_clique_id
-        args = [
-            (rvf(instance), rcf(instance)),
-            (rvf(instance),),
-            (rvf(instance), rvf(instance))
-        ][mut_id]
+        """
+        Получение изменения целевой функции при мутации
+        O(n) (вместо O(n^2) при прямом подсчете)
+        """
+        rvf1 = self._get_random_vertex_id(instance)
+        rvf2 = self._get_random_vertex_id(instance)
+        rcf = self._get_random_clique_id(instance)
+        args = [(rvf1, rcf), (rvf1,), (rvf1, rvf2)][mut_id]
 
-        d_mut = [
-            instance.delta_move,
-            instance.delta_separate,
-            instance.delta_swap
-        ]
+        d_mut = [instance.delta_move, instance.delta_separate, instance.delta_swap]
         return d_mut[mut_id](*args), args
 
     @staticmethod
     def _mutate(instance, mut_id, args):
-        mut = [
-            instance.move,
-            instance.separate,
-            instance.swap
-        ]
-        mut[mut_id](*args)
+        [instance.move, instance.separate, instance.swap][mut_id](*args)
 
     def solve(self, instance):
-        t_current = self._t_max
         s_best = instance.copy()
         s_best_obj = instance.obj_value()
 
@@ -66,6 +57,8 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         s_cur_obj = s_best_obj
 
         it = 1
+        t_current = self._t_max
+        self.obj_mem.clear()
         while t_current > self._t_min:
             mut_id = self._get_mutation_id()
             delta_e, args = self._get_delta(s_current, mut_id)
@@ -74,16 +67,16 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
                 self._mutate(s_current, mut_id,  args)
                 s_cur_obj += delta_e
 
-            t_current = self._temp_func(it)
-            self.obj_mem.append(s_cur_obj)
+            self.obj_mem.append(s_cur_obj)  # запись изменений целевой функции для графика
             if s_cur_obj > s_best_obj:
                 s_best = s_current.copy()
 
+            t_current = self._temp_func(it)
             it += 1
 
         return s_best
 
-
+# различные функции температуры
 class AbstractSATemp:
     def __init__(self, alpha, init_temp):
         self._alpha = alpha
@@ -128,30 +121,29 @@ class LogTemp(AbstractSATemp):
         return self._init_temp / (1 + np.log(it) * self._alpha)
 
 
-def test(max_t, min_t, temp_f, show_q=False):
-    print(temp_f)
-    graph = hw_2.CompleteGraphGen.generate(70)
-    instance = hw_3.Instance(graph)
-
-    base = hw_3.BaseSolver()
-    solution = base.solve(instance)
-    print(f"База: {solution.obj_value()}")
-
-    sa = SimulatedAnnealing(temp_f, min_t, max_t)
-    solution_2 = sa.solve(solution)
-
-    if show_q:
-        plt.plot(sa.obj_mem)
-        plt.show()
-    print(f"Улучшение SA: {solution_2.obj_value()}")
-
-    ls = hw_3.LocalSearch(1000, 1, 1)
-    solution_3 = ls.solve(solution)
-
-    print(f"Улучшение LS: {solution_3.obj_value()}\n")
-
-
 if __name__ == "__main__":
+    def test(max_t, min_t, temp_f, show_q=True):
+        print(temp_f)
+        graph = hw_2.CompleteGraphGen.generate(100)
+        instance = hw_3.Instance(graph)
+
+        base = hw_3.BaseSolver()
+        solution = base.solve(instance)
+        print(f"База: {solution.obj_value()}")
+
+        sa = SimulatedAnnealing(temp_f, min_t, max_t)
+        solution_2 = sa.solve(solution)
+
+        if show_q:
+            plt.plot(sa.obj_mem)
+            plt.show()
+        print(f"Улучшение SA: {solution_2.obj_value()}")
+
+        ls = hw_3.LocalSearch(1000, 1, 1)
+        solution_3 = ls.solve(solution)
+
+        print(f"Улучшение LS: {solution_3.obj_value()}\n")
+
     test(10, 1, LinearTemp(0.0001, 10))
     test(10, 0.01, QudraticTemp(0.000001, 10))
     test(10, 0.01, GeomTemp(0.9999, 10))

@@ -11,6 +11,9 @@ VertexId = int
 
 
 class Instance:
+    """
+    Класс, хранящий экзепляр и текущее решение задачи о кликах.
+    """
     def __init__(
             self,
             weight: np.array,
@@ -18,6 +21,13 @@ class Instance:
             clique_id_to_vertexes: tp.Optional[tp.Dict[CliqueId, tp.Set[VertexId]]] = None,
             base_solution_type=0
     ):
+        """
+        :param weight: двумерный np-массив - симметричная матрица с нулевой диагональю
+        :param vertex_id_to_clique_id: отображение id вершины в id клики
+        :param clique_id_to_vertexes: отображение id клики в множество id вершин из этой клики
+        :param base_solution_type: 0 - начальное решение "каждая вершина - клика"
+                                   1 - начальное решение "клика - все вершины"
+        """
         self._weight = weight
         self._n = weight.shape[0]
         self._vertex_id_to_clique_id: tp.Optional[tp.List[CliqueId]] = None
@@ -42,12 +52,13 @@ class Instance:
                 self._vertex_id_to_clique_id = [0 for _ in range(self._n)]
                 self._clique_id_to_vertexes = {0: set(range(self._n))}
 
-        self.renumerate()
-
     def _mex(self):
+        """
+        O(#клик)
+        :return: кандидат на id для новой клики
+        """
         m = 0
-        x = {i for i, j in self._clique_id_to_vertexes.items() if len(j) > 0}
-        while m in x:
+        while m in self._clique_id_to_vertexes and len(self._clique_id_to_vertexes[m]) > 0:
             m += 1
         return m
 
@@ -62,6 +73,12 @@ class Instance:
         return self._n
 
     def in_one_clique_q(self, *args):
+        """
+        Проверка в одной ли клике две вершины (ребро)
+        O(1)
+        :param args: 2 вершины или ребро (кортеж двух вершин)
+        :return: True если вершины в одной клике иначе False
+        """
         if len(args) == 1:
             v1, v2 = args[0]
         elif len(args) == 2:
@@ -71,6 +88,10 @@ class Instance:
         return self._vertex_id_to_clique_id[v1] == self._vertex_id_to_clique_id[v2]
 
     def vertex_in_clique_q(self, vertex_id, clique_id):
+        """
+         Проверка находится ли вершина в данной клике
+         O(1)
+        """
         return self._vertex_id_to_clique_id[vertex_id] == clique_id
 
     def weight(self, *args):
@@ -97,6 +118,11 @@ class Instance:
             yield i
 
     def obj_value(self):
+        """
+        Расчитать целевую функцию
+        :return: значение целевой функции для данного решения
+        O(n^2)
+        """
         val = 0
         for edge in self.edge_iter():
             if self.in_one_clique_q(edge):
@@ -104,6 +130,9 @@ class Instance:
         return val
 
     def renumerate(self):
+        """
+        Перенумеровать id клик в соответсвенно {0, 1, ..., #клик}
+        """
         mapping = dict()
         c = 0
         for i in self._vertex_id_to_clique_id:
@@ -115,13 +144,23 @@ class Instance:
         self._clique_id_to_vertexes = {mapping[i]: j for i, j in self._clique_id_to_vertexes.items() if len(j) > 0}
 
     def get_clique_id(self, vertex_id):
+        """
+        Геттер для self._vertex_id_to_clique_id
+        """
         return self._vertex_id_to_clique_id[vertex_id]
 
     def get_vertexes(self, clique_id):
+        """
+        Итератор!!! для получения элементов множества вершин из данной клики
+        """
         for i in self._clique_id_to_vertexes[clique_id]:
             yield i
 
     def move(self, vertex_id, clique_id):
+        """
+        Перемещение вершины в данную клику
+        O(1)
+        """
         old_cli_id = self._vertex_id_to_clique_id[vertex_id]
         self._clique_id_to_vertexes[old_cli_id].remove(vertex_id)
 
@@ -130,6 +169,10 @@ class Instance:
         self._vertex_id_to_clique_id[vertex_id] = clique_id
 
     def separate(self, vertex):
+        """
+        Изолирование вершины
+        O(1) + O(#клик)
+        """
         clique_id = self._vertex_id_to_clique_id[vertex]
         if len(self._clique_id_to_vertexes[clique_id]) == 1:
             return
@@ -140,6 +183,10 @@ class Instance:
         self._clique_id_to_vertexes[clique_id_v] = {vertex}
 
     def swap(self, vertex_1, vertex_2):
+        """
+        Поменять вершины кликами.
+        O(1)
+        """
         clique_id_1 = self._vertex_id_to_clique_id[vertex_1]
         clique_id_2 = self._vertex_id_to_clique_id[vertex_2]
         if clique_id_2 == clique_id_1:
@@ -149,6 +196,10 @@ class Instance:
         self.move(vertex_2, clique_id_1)
 
     def delta_move(self, vertex, clique_id):
+        """
+        Предварительный рассчет изменения целевой функции при перемещении вершины в данную клику.
+        O(n) в худшем случае (вместо вызова obj_val с O(n^2))
+        """
         clique_id_v = self._vertex_id_to_clique_id[vertex]
         if clique_id_v == clique_id:
             return 0
@@ -164,6 +215,10 @@ class Instance:
         return delta1 + delta2
 
     def delta_separate(self, vertex):
+        """
+        Предварительный рассчет изменения целевой функции при изолировании вершины.
+        O(n) в худшем случае (вместо вызова obj_val с O(n^2))
+        """
         delta = 0
         clique_id = self._vertex_id_to_clique_id[vertex]
         for i in self._clique_id_to_vertexes[clique_id]:
@@ -172,20 +227,30 @@ class Instance:
         return delta
 
     def delta_swap(self, vertex_1, vertex_2):
+        """
+        Предварительный рассчет изменения целевой функции при swap-e двух вершин.
+        O(n) в худшем случае (вместо вызова obj_val с O(n^2))
+        """
         delta = 0
         if self._vertex_id_to_clique_id[vertex_2] == self._vertex_id_to_clique_id[vertex_1]:
             return delta
 
-        delta1 = self.delta_move(
-            vertex_1,
-            self._vertex_id_to_clique_id[vertex_2]
-        )
-        delta2 = self.delta_move(
-            vertex_2,
-            self._vertex_id_to_clique_id[vertex_1],
-        )
+        delta1 = self.delta_move(vertex_1, self._vertex_id_to_clique_id[vertex_2])
+        delta2 = self.delta_move(vertex_2, self._vertex_id_to_clique_id[vertex_1])
 
         return delta1 + delta2 - 2 * self._weight[vertex_1, vertex_2]
+
+    def smart_move(self, vertex_id, clique_id):
+        if self.delta_move(vertex_id, clique_id) > 0:
+            self.move(vertex_id, clique_id)
+
+    def smart_separate(self, vertex_id):
+        if self.delta_separate(vertex_id) > 0:
+            self.separate(vertex_id)
+
+    def smart_swap(self, vertex_1, vertex_2):
+        if self.delta_swap(vertex_1, vertex_2) > 0:
+            self.swap(vertex_1, vertex_2)
 
 
 class AbstractSolver(ABC):
@@ -196,28 +261,36 @@ class AbstractSolver(ABC):
 
 class BaseSolver(AbstractSolver):
     def solve(self, instance):
+        """
+        Базовое решение для Instance.
+        O(n ^ 3)
+        """
         instance = instance.copy()
         n = instance.vertex_number
 
-        for cur_cli_id in range(n):
-            for next_vertex in range(n):
-                if not instance.vertex_in_clique_q(next_vertex, cur_cli_id):
-                    next_cli_id = instance.get_clique_id(next_vertex)
-
-                    delta = 0
-                    for i in instance.get_vertexes(next_cli_id):
-                        delta -= instance.weight(i, next_vertex)
-                    for i in instance.get_vertexes(cur_cli_id):
-                        delta += instance.weight(i, next_vertex)
-
-                    if delta > 0:
-                        instance.move(next_vertex, cur_cli_id)
+        for cur_cli_id in instance.clique_id_iter():  # O(n)
+            for next_vertex in range(n):  # O(n)
+                instance.smart_move(next_vertex, cur_cli_id)  # O(n)
 
         return instance
 
 
 class LocalSearch(AbstractSolver):
+    """
+    Локальный поиск.
+    Стратегии:
+        1) Перемещение, изолирование - _strategy_1
+        2) Перемещение, изолирование и swap - _strategy_2
+    Виды "шагов":
+        1) Жадный шаг - перебираем все возможные мутации из данного решения и выбираем наилучшее - _step_greed
+        2) Быстрый шаг - перебираем все возможные мутации пока не улучшим целевую функцию - _step_stop_first
+    """
     def __init__(self, step_number=10, strategy_id=0, step_id=0):
+        """
+        :param step_number: кол-во шагов
+        :param strategy_id: 0 - _strategy_1, 1 - _strategy_2
+        :param step_id: 0 - _step_greed, 1 - _step_stop_first
+        """
         self._step_number = step_number
         self._strategy_id = strategy_id
         self._step_id = step_id
@@ -278,88 +351,89 @@ class LocalSearch(AbstractSolver):
         return instance
 
 
-def test1():
-    graph = hw_2.CompleteGraphGen.generate(10)
-    instance = Instance(graph)
-
-    base = BaseSolver()
-    base.solve(instance)
-
-    hw2_solver = hw_2.CliquePartitioningProblem(graph)
-    true_solution = hw2_solver.solve()
-    instance_2 = Instance(graph, true_solution)
-
-    print(f"obj: {instance.obj_value()}")
-    print(f"true obj: {instance_2.obj_value()}")
-
-
-def test2():
-    graph = hw_2.CompleteGraphGen.generate(10)
-    instance = Instance(graph)
-
-    base = BaseSolver()
-    base.solve(instance)
-
-    ls = LocalSearch(10, 0, 0)
-    instance_2 = ls.solve(instance)
-
-    hw2_solver = hw_2.CliquePartitioningProblem(graph)
-    true_solution = hw2_solver.solve()
-    instance_3 = Instance(graph, true_solution)
-
-    print(f"obj: {instance.obj_value()}")
-    print(f"obj: {instance_2.obj_value()}")
-    print(f"true_solution: {instance_3.obj_value()}")
-
-
-def main_test():
-    # (0, 0) - ((a,b)  , greed     ),
-    # (0, 1) - ((a,b)  , first_stop),
-    # (1, 0) - ((a,b,c), greed     ),
-    # (1, 1) - ((a,b,c), first_stop),
-
-    # нужно (0, 0) VS (1, 0)    и    (1, 0) VS (1, 1)
-    def temp_def(a1, a2):
-        dtimes = np.array([0.0, 0.0])
-        ds = np.array([0.0, 0.0])
-        n = 50
-        for test_number in range(n):
-            graph = hw_2.CompleteGraphGen.generate(50)
-            instance = Instance(graph)
-            base = BaseSolver()
-            base.solve(instance)
-            s1 = instance.obj_value()
-
-            ls = LocalSearch(10, *a1)
-            st = time.time()
-            instance_2 = ls.solve(instance)
-            p1 = time.time()
-
-            ls = LocalSearch(1, *a2)
-            p2 = time.time()
-            instance_3 = ls.solve(instance)
-            fn = time.time()
-
-            dtimes += (p1 - st, fn - p2)
-
-            ds += (instance_2.obj_value() - s1, instance_3.obj_value() - s1)
-        dtimes /= n
-        print(f"{a1} VS {a2} time: {dtimes}")
-        print(f"{a1} VS {a2} obj: {ds}")
-
-    temp_def((0, 0), (1, 0))
-    temp_def((1, 0), (1, 1))
-    # time - затраченное время, obj - насколько учлучшилась функция после LS
-    # (0, 0) VS (1, 0) time: [0.09311929 0.82128852]
-    # (0, 0) VS (1, 0) obj: [15404.55328308 15594.92377154]
-    # Видно, что в среднем (0, 0) работает быстрее, причем улучшает в среднем примерно так же как (1, 0)
-    # Итого, берем ((a,b), greed)
-
-    # (1, 0) VS (1, 1) time: [0.8310325  0.11410839]
-    # (1, 0) VS (1, 1) obj: [15174.54810291 15753.84239695]
-    # Здесь вариант (1, 1) работает чуть быстее, причем улучшает в среднем чуть лучше, чем (1, 0)
-    # Итого, ((a,b,c), first_stop) чуть лучше
-
-
 if __name__ == "__main__":
+    def test1():
+        graph = hw_2.CompleteGraphGen.generate(10)
+        instance = Instance(graph)
+
+        base = BaseSolver()
+        base.solve(instance)
+
+        hw2_solver = hw_2.CliquePartitioningProblem(graph)
+        true_solution = hw2_solver.solve()
+        instance_2 = Instance(graph, true_solution)
+
+        print(f"obj: {instance.obj_value()}")
+        print(f"true obj: {instance_2.obj_value()}")
+
+
+    def test2():
+        graph = hw_2.CompleteGraphGen.generate(10)
+        instance = Instance(graph)
+
+        base = BaseSolver()
+        base.solve(instance)
+
+        ls = LocalSearch(10, 0, 0)
+        instance_2 = ls.solve(instance)
+
+        hw2_solver = hw_2.CliquePartitioningProblem(graph)
+        true_solution = hw2_solver.solve()
+        instance_3 = Instance(graph, true_solution)
+
+        print(f"obj: {instance.obj_value()}")
+        print(f"obj: {instance_2.obj_value()}")
+        print(f"true_solution: {instance_3.obj_value()}")
+
+
+    def main_test():
+        # (0, 0) - ((a,b)  , greed     ),
+        # (0, 1) - ((a,b)  , first_stop),
+        # (1, 0) - ((a,b,c), greed     ),
+        # (1, 1) - ((a,b,c), first_stop),
+
+        # нужно (0, 0) VS (1, 0)    и    (1, 0) VS (1, 1)
+        def temp_def(a1, a2):
+            dtimes = np.array([0.0, 0.0])
+            ds = np.array([0.0, 0.0])
+            n = 50
+            for test_number in range(n):
+                graph = hw_2.CompleteGraphGen.generate(50)
+                instance = Instance(graph)
+                base = BaseSolver()
+                base.solve(instance)
+                s1 = instance.obj_value()
+
+                ls = LocalSearch(10, *a1)
+                st = time.time()
+                instance_2 = ls.solve(instance)
+                p1 = time.time()
+
+                ls = LocalSearch(1, *a2)
+                p2 = time.time()
+                instance_3 = ls.solve(instance)
+                fn = time.time()
+
+                dtimes += (p1 - st, fn - p2)
+
+                ds += (instance_2.obj_value() - s1, instance_3.obj_value() - s1)
+            dtimes /= n
+            print(f"{a1} VS {a2} time: {dtimes}")
+            print(f"{a1} VS {a2} obj: {ds}")
+
+        temp_def((0, 0), (1, 0))
+        temp_def((1, 0), (1, 1))
+        # time - затраченное время, obj - насколько учлучшилась функция после LS
+        # (0, 0) VS (1, 0) time: [0.09311929 0.82128852]
+        # (0, 0) VS (1, 0) obj: [15404.55328308 15594.92377154]
+        # Видно, что в среднем (0, 0) работает быстрее, причем улучшает в среднем примерно так же как (1, 0)
+        # Итого, берем ((a,b), greed)
+
+        # (1, 0) VS (1, 1) time: [0.8310325  0.11410839]
+        # (1, 0) VS (1, 1) obj: [15174.54810291 15753.84239695]
+        # Здесь вариант (1, 1) работает чуть быстее, причем улучшает в среднем чуть лучше, чем (1, 0)
+        # Итого, ((a,b,c), first_stop) чуть лучше
+
+    test1()
+    test2()
     main_test()
