@@ -251,14 +251,17 @@ class Instance:
         return delta1 + delta2 - 2 * self._weight[vertex_1, vertex_2]
 
     def smart_move(self, vertex_id, clique_id):
+        # O(n)
         if self.delta_move(vertex_id, clique_id) > 0:
             self.move(vertex_id, clique_id)
 
     def smart_separate(self, vertex_id):
+        # O(n)
         if self.delta_separate(vertex_id) > 0:
             self.separate(vertex_id)
 
     def smart_swap(self, vertex_1, vertex_2):
+        # O(n)
         if self.delta_swap(vertex_1, vertex_2) > 0:
             self.swap(vertex_1, vertex_2)
 
@@ -305,6 +308,9 @@ class LocalSearch(AbstractSolver):
         self._strategy_id = strategy_id
         self._step_id = step_id
 
+        self._strategy = [self._strategy_1, self._strategy_2][self._strategy_id]
+        self._step = [self._step_greed, self._step_stop_first][self._step_id]
+
     @staticmethod
     def _strategy_1(instance):
         for vertex in range(instance.vertex_number):
@@ -350,11 +356,8 @@ class LocalSearch(AbstractSolver):
     def solve(self, instance):
         instance = instance.copy()
 
-        strategy = [self._strategy_1, self._strategy_2][self._strategy_id]
-        step = [self._step_greed, self._step_stop_first][self._step_id]
-
         for i in range(self._step_number):
-            res = step(instance, strategy)
+            res = self._step(instance, self._strategy)
             if res is None:
                 break
 
@@ -374,6 +377,9 @@ class SimulatedAnnealing(AbstractSolver):
 
     @staticmethod
     def _get_mutation_id():
+        """
+        0 - move, 1 - separate, 2 - swap
+        """
         return random.randint(0, 2)
 
     @staticmethod
@@ -385,9 +391,10 @@ class SimulatedAnnealing(AbstractSolver):
         clique = list(instance.clique_id_iter())
         return random.choice(clique)
 
-    def _get_delta(self, instance, mut_id):
+    def _get_delta_and_args(self, instance, mut_id):
         """
-        Получение изменения целевой функции при мутации
+        Получение изменения целевой функции при следующей случайной мутации
+        и соотвествующих аргументов мутации
         O(n) (вместо O(n^2) при прямом подсчете)
         """
         rvf1 = self._get_random_vertex_id(instance)
@@ -403,7 +410,7 @@ class SimulatedAnnealing(AbstractSolver):
         [instance.move, instance.separate, instance.swap][mut_id](*args)
 
     def solve(self, instance):
-        s_best = instance.copy()
+        s_best = instance
         s_best_obj = instance.obj_value()
 
         s_current = instance.copy()
@@ -414,7 +421,7 @@ class SimulatedAnnealing(AbstractSolver):
         self.obj_mem.clear()
         while t_current > self._t_min:
             mut_id = self._get_mutation_id()
-            delta_e, args = self._get_delta(s_current, mut_id)
+            delta_e, args = self._get_delta_and_args(s_current, mut_id)
 
             if delta_e > 0 or (delta_e < 0 and random.uniform(0, 1) < np.exp(delta_e / t_current)):
                 self._mutate(s_current, mut_id,  args)
@@ -431,7 +438,7 @@ class SimulatedAnnealing(AbstractSolver):
 
 
 # различные функции температуры
-class AbstractSATemp:
+class AbstractSATemp(ABC):
     def __init__(self, alpha, init_temp):
         self._alpha = alpha
         self._init_temp = init_temp

@@ -14,6 +14,7 @@ class Instance:
     """
     Класс, хранящий экзепляр и текущее решение задачи о кликах.
     """
+
     def __init__(
             self,
             weight: np.array,
@@ -241,14 +242,17 @@ class Instance:
         return delta1 + delta2 - 2 * self._weight[vertex_1, vertex_2]
 
     def smart_move(self, vertex_id, clique_id):
+        # O(n)
         if self.delta_move(vertex_id, clique_id) > 0:
             self.move(vertex_id, clique_id)
 
     def smart_separate(self, vertex_id):
+        # O(n)
         if self.delta_separate(vertex_id) > 0:
             self.separate(vertex_id)
 
     def smart_swap(self, vertex_1, vertex_2):
+        # O(n)
         if self.delta_swap(vertex_1, vertex_2) > 0:
             self.swap(vertex_1, vertex_2)
 
@@ -285,6 +289,7 @@ class LocalSearch(AbstractSolver):
         1) Жадный шаг - перебираем все возможные мутации из данного решения и выбираем наилучшее - _step_greed
         2) Быстрый шаг - перебираем все возможные мутации пока не улучшим целевую функцию - _step_stop_first
     """
+
     def __init__(self, step_number=10, strategy_id=0, step_id=0):
         """
         :param step_number: кол-во шагов
@@ -294,6 +299,9 @@ class LocalSearch(AbstractSolver):
         self._step_number = step_number
         self._strategy_id = strategy_id
         self._step_id = step_id
+
+        self._strategy = [self._strategy_1, self._strategy_2][self._strategy_id]
+        self._step = [self._step_greed, self._step_stop_first][self._step_id]
 
     @staticmethod
     def _strategy_1(instance):
@@ -340,11 +348,8 @@ class LocalSearch(AbstractSolver):
     def solve(self, instance):
         instance = instance.copy()
 
-        strategy = [self._strategy_1, self._strategy_2][self._strategy_id]
-        step = [self._step_greed, self._step_stop_first][self._step_id]
-
         for i in range(self._step_number):
-            res = step(instance, strategy)
+            res = self._step(instance, self._strategy)
             if res is None:
                 break
 

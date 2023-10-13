@@ -1,4 +1,4 @@
-import abc
+from abc import abstractmethod, ABC
 import random
 
 import matplotlib.pyplot as plt
@@ -21,6 +21,9 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
 
     @staticmethod
     def _get_mutation_id():
+        """
+        0 - move, 1 - separate, 2 - swap
+        """
         return random.randint(0, 2)
 
     @staticmethod
@@ -32,9 +35,10 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         clique = list(instance.clique_id_iter())
         return random.choice(clique)
 
-    def _get_delta(self, instance, mut_id):
+    def _get_delta_and_args(self, instance, mut_id):
         """
-        Получение изменения целевой функции при мутации
+        Получение изменения целевой функции при следующей случайной мутации
+        и соотвествующих аргументов мутации
         O(n) (вместо O(n^2) при прямом подсчете)
         """
         rvf1 = self._get_random_vertex_id(instance)
@@ -50,7 +54,7 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         [instance.move, instance.separate, instance.swap][mut_id](*args)
 
     def solve(self, instance):
-        s_best = instance.copy()
+        s_best = instance
         s_best_obj = instance.obj_value()
 
         s_current = instance.copy()
@@ -61,7 +65,7 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         self.obj_mem.clear()
         while t_current > self._t_min:
             mut_id = self._get_mutation_id()
-            delta_e, args = self._get_delta(s_current, mut_id)
+            delta_e, args = self._get_delta_and_args(s_current, mut_id)
 
             if delta_e > 0 or (delta_e < 0 and random.uniform(0, 1) < np.exp(delta_e / t_current)):
                 self._mutate(s_current, mut_id,  args)
@@ -76,13 +80,14 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
 
         return s_best
 
+
 # различные функции температуры
-class AbstractSATemp:
+class AbstractSATemp(ABC):
     def __init__(self, alpha, init_temp):
         self._alpha = alpha
         self._init_temp = init_temp
 
-    @abc.abstractmethod
+    @abstractmethod
     def __call__(self, it):
         raise NotImplementedError
 
