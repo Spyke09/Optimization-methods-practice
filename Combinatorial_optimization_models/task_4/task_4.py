@@ -27,11 +27,11 @@ class SimulatedAnnealing(hw_3.AbstractSolver):
         return random.randint(0, 2)
 
     @staticmethod
-    def _get_random_vertex_id(instance: hw_3.Instance):
+    def _get_random_vertex_id(instance: hw_3.Assignment):
         return random.randint(0, instance.vertex_number - 1)
 
     @staticmethod
-    def _get_random_clique_id(instance: hw_3.Instance):
+    def _get_random_clique_id(instance: hw_3.Assignment):
         clique = list(instance.clique_id_iter())
         return random.choice(clique)
 
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     def test(max_t, min_t, temp_f, show_q=True):
         print(temp_f)
         graph = hw_2.CompleteGraphGen.generate(100)
-        instance = hw_3.Instance(graph)
+        instance = hw_3.Assignment(graph)
 
         base = hw_3.BaseSolver()
         solution = base.solve(instance)

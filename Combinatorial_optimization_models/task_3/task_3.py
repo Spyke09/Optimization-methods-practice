@@ -10,7 +10,7 @@ CliqueId = int
 VertexId = int
 
 
-class Instance:
+class Assignment:
     """
     Класс, хранящий экзепляр и текущее решение задачи о кликах.
     """
@@ -64,7 +64,7 @@ class Instance:
         return m
 
     def copy(self):
-        return Instance(
+        return Assignment(
             self._weight,
             self._vertex_id_to_clique_id.copy()
         )
@@ -259,14 +259,14 @@ class Instance:
 
 class AbstractSolver(ABC):
     @abstractmethod
-    def solve(self, instance: Instance):
+    def solve(self, instance: Assignment):
         raise NotImplementedError()
 
 
 class BaseSolver(AbstractSolver):
     def solve(self, instance):
         """
-        Базовое решение для Instance.
+        Базовое решение для Assignment.
         O(n ^ 3)
         """
         instance = instance.copy()
@@ -321,7 +321,7 @@ class LocalSearch(AbstractSolver):
             yield instance.delta_swap(v1, v2), instance.swap, v1, v2
 
     @staticmethod
-    def _step_stop_first(instance: Instance, strategy):
+    def _step_stop_first(instance: Assignment, strategy):
         for delta, action, *args in strategy(instance):
             if delta > 0:
                 action(*args)
@@ -329,7 +329,7 @@ class LocalSearch(AbstractSolver):
         return None
 
     @staticmethod
-    def _step_greed(instance: Instance, strategy):
+    def _step_greed(instance: Assignment, strategy):
         best_delta = 0
         next_action = None
         next_args = None
@@ -359,14 +359,14 @@ class LocalSearch(AbstractSolver):
 if __name__ == "__main__":
     def test1():
         graph = hw_2.CompleteGraphGen.generate(10)
-        instance = Instance(graph)
+        instance = Assignment(graph)
 
         base = BaseSolver()
         base.solve(instance)
 
         hw2_solver = hw_2.CliquePartitioningProblem(graph)
         true_solution = hw2_solver.solve()
-        instance_2 = Instance(graph, true_solution)
+        instance_2 = Assignment(graph, true_solution)
 
         print(f"obj: {instance.obj_value()}")
         print(f"true obj: {instance_2.obj_value()}")
@@ -374,7 +374,7 @@ if __name__ == "__main__":
 
     def test2():
         graph = hw_2.CompleteGraphGen.generate(10)
-        instance = Instance(graph)
+        instance = Assignment(graph)
 
         base = BaseSolver()
         base.solve(instance)
@@ -384,7 +384,7 @@ if __name__ == "__main__":
 
         hw2_solver = hw_2.CliquePartitioningProblem(graph)
         true_solution = hw2_solver.solve()
-        instance_3 = Instance(graph, true_solution)
+        instance_3 = Assignment(graph, true_solution)
 
         print(f"obj: {instance.obj_value()}")
         print(f"obj: {instance_2.obj_value()}")
@@ -404,7 +404,7 @@ if __name__ == "__main__":
             n = 50
             for test_number in range(n):
                 graph = hw_2.CompleteGraphGen.generate(50)
-                instance = Instance(graph)
+                instance = Assignment(graph)
                 base = BaseSolver()
                 base.solve(instance)
                 s1 = instance.obj_value()

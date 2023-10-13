@@ -20,7 +20,7 @@ class CompleteGraphGen:
         return a
 
 
-class Instance:
+class Assignment:
     """
     Класс, хранящий экзепляр и текущее решение задачи о кликах.
     """
@@ -73,7 +73,7 @@ class Instance:
         return m
 
     def copy(self):
-        return Instance(
+        return Assignment(
             self._weight,
             self._vertex_id_to_clique_id.copy()
         )
@@ -268,14 +268,14 @@ class Instance:
 
 class AbstractSolver(ABC):
     @abstractmethod
-    def solve(self, instance: Instance):
+    def solve(self, instance: Assignment):
         raise NotImplementedError()
 
 
 class BaseSolver(AbstractSolver):
     def solve(self, instance):
         """
-        Базовое решение для Instance.
+        Базовое решение для Assignment.
         O(n ^ 3)
         """
         instance = instance.copy()
@@ -329,7 +329,7 @@ class LocalSearch(AbstractSolver):
             yield instance.delta_swap(v1, v2), instance.swap, v1, v2
 
     @staticmethod
-    def _step_stop_first(instance: Instance, strategy):
+    def _step_stop_first(instance: Assignment, strategy):
         for delta, action, *args in strategy(instance):
             if delta > 0:
                 action(*args)
@@ -337,7 +337,7 @@ class LocalSearch(AbstractSolver):
         return None
 
     @staticmethod
-    def _step_greed(instance: Instance, strategy):
+    def _step_greed(instance: Assignment, strategy):
         best_delta = 0
         next_action = None
         next_args = None
@@ -383,11 +383,11 @@ class SimulatedAnnealing(AbstractSolver):
         return random.randint(0, 2)
 
     @staticmethod
-    def _get_random_vertex_id(instance: Instance):
+    def _get_random_vertex_id(instance: Assignment):
         return random.randint(0, instance.vertex_number - 1)
 
     @staticmethod
-    def _get_random_clique_id(instance: Instance):
+    def _get_random_clique_id(instance: Assignment):
         clique = list(instance.clique_id_iter())
         return random.choice(clique)
 
@@ -409,7 +409,7 @@ class SimulatedAnnealing(AbstractSolver):
     def _mutate(instance, mut_id, args):
         [instance.move, instance.separate, instance.swap][mut_id](*args)
 
-    def solve(self, instance):
+    def solve(self, instance: Assignment):
         s_best = instance
         s_best_obj = instance.obj_value()
 
@@ -486,7 +486,7 @@ if __name__ == "__main__":
     def test(max_t, min_t, temp_f, show_q=True):
         print(temp_f)
         graph = CompleteGraphGen.generate(100)
-        instance = Instance(graph)
+        instance = Assignment(graph)
 
         base = BaseSolver()
         solution = base.solve(instance)
