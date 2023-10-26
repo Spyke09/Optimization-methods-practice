@@ -9,6 +9,9 @@ import typing as tp
 
 @dataclass
 class CinemaInstance:
+    """
+    Класс для хранения данных об экземпляре
+    """
     number_of_movies: int
     number_of_screens: int
     hor_plan: int
@@ -22,7 +25,11 @@ class CinemaInstance:
     delta_t_1: np.array
 
 
+
 class CinemaInstanceGen:
+    """
+    Класс для генерации данных
+    """
     @staticmethod
     def _generate_delta_t_1(hor_plan):
         n = 10
@@ -50,6 +57,9 @@ class CinemaInstanceGen:
 
     @staticmethod
     def generate(number_of_movies, number_of_screens, hor_plan):
+        """
+        Питоновская калька исходной генерации данных из *.nb
+        """
         td_m = np.random.randint(1, 6, number_of_movies)
         p_m_t = np.random.randint(1, 6, (number_of_movies, hor_plan))
 
@@ -92,6 +102,10 @@ class CinemaSolver:
         self.x = None
 
     def solve(self, inst: CinemaInstance):
+        """
+        Возвращает (номер `зала`, номер `порядкового фильма` в зале, `время`)
+        для `порядкового фильма` который должен быть поставлен в `зале` в это `время`
+        """
         self._create_model(inst)
         self._model.solve()
 
@@ -125,16 +139,20 @@ class CinemaSolver:
 
     @staticmethod
     def _t_s(inst, s, i):
+        """
+        Не храню T_s для каждого зала и порядкового фильма
+        """
         return np.array([j for j in inst.t_s[s] if j + inst.tech_s[s] + inst.td_m[inst.pi_s[s][i]] <= 24])
 
     def _create_model(self, inst):
         screens = range(inst.number_of_screens)
-
+        # создаю иксы
         x = self._create_x(inst)
         self.x = x
-
+        # создаю игреки
         y = self._create_y(inst)
 
+        # целевая функция
         self._model.setObjective(
             sum(inst.price_s[s] * min(inst.cap_s[s], inst.p_m_t[inst.pi_s[s][i], t]) * x[s, i, t]
                 for s in screens
@@ -143,12 +161,14 @@ class CinemaSolver:
             coptpy.COPT.MAXIMIZE
         )
 
+        # ограничение, которое указывает на то, показан ли фильм из pi_s или нет
         self._model.addConstrs(
             sum(x[s, i, t] for t in self._t_s(inst, s, i)) + y[s, i] == 1
             for s in screens
             for i in range(len(inst.pi_s[s]))
         )
 
+        # запрет на наложения с учетом уборки и т.д.
         self._model.addConstrs(
             sum((t + inst.td_m[inst.pi_s[s][i]] + inst.tech_s[s]) * x[s, i, t] for t in self._t_s(inst, s, i)) <=
             sum(t * x[s, j, t] for t in self._t_s(inst, s, j)) + 100 * inst.hor_plan * y[s, j]
@@ -157,6 +177,7 @@ class CinemaSolver:
             for j in range(i + 1, len(inst.pi_s[s]))
         )
 
+        # ограничения с delta_T1
         for delta in inst.delta_t_1:
             temp = [
                     x[s, i, t]
