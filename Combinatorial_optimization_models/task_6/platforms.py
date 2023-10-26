@@ -3,9 +3,6 @@ import logging
 import random
 
 import coptpy
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
 import typing as tp
 from collections import defaultdict
 
@@ -73,7 +70,7 @@ class CPInstance:
 class CPSolver:
     def __init__(self):
         self._envr = coptpy.Envr()
-        self._model: coptpy.Model = self._envr.createModel(name="CliquePartitioningProblem")
+        self._model: coptpy.Model = self._envr.createModel(name="CPProblem")
         self._model.setParam(coptpy.COPT.Param.Logging, COPT_LOG_LEVEL)
 
         self._logger = logging.getLogger("CPSolver")
