@@ -1,10 +1,9 @@
-import itertools
 import logging
+import typing as tp
 from dataclasses import dataclass
 
 import coptpy
 import numpy as np
-import typing as tp
 
 
 @dataclass
@@ -23,7 +22,6 @@ class CinemaInstance:
     pi_s: tp.List[np.array]
     t_s: tp.List[np.array]
     delta_t_1: np.array
-
 
 
 class CinemaInstanceGen:
