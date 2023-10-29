@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-import Combinatorial_optimization_models.task_2_2.hw_2_2 as hw_2
+import Combinatorial_optimization_models.block_1.task_2_2.hw_2_2 as hw_2
 
 CliqueId = int
 VertexId = int
