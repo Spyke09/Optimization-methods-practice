@@ -26,8 +26,8 @@ class CehInstance:
     t_b: np.array = dataclasses.field(init=False)
 
     def big_t(self, p, s):
-        lb = self.t_a[p, s] + 1
-        ub = max(self.tau[p] - self.tc[p, s] - self.t_b[p, s], lb)
+        lb = int(self.t_a[p, s] + 1)
+        ub = int(max(self.tau[p] - self.tc[p, s] - self.t_b[p, s], lb))
         return np.arange(lb, ub)
 
     def big_u(self, s, t):
@@ -35,7 +35,8 @@ class CehInstance:
         for p in range(self.n_products):
             for t_ in range(self.n_time):
                 if t_ <= t <= t_ + self.tc[p, s]:
-                    res.append((p, s, t_))
+                    res.append((p, t_))
+        return res
 
     def __post_init__(self):
         self.first = np.full(self.n_products, -1)
@@ -97,48 +98,109 @@ class CehSolver:
             return self.x
 
     def _create_model(self, inst):
-        x = self._model.addVars(coptpy.tuplelist(inst.x_iter()), vtype=coptpy.COPT.BINARY, nameprefix="x")
-        y = self._model.addVars(coptpy.tuplelist(inst.x_iter()), vtype=coptpy.COPT.BINARY, nameprefix="y")
-        # h = self._model.addVars(range(inst.n_products), vtype=coptpy.COPT.BINARY, nameprefix="h")
+        self.x = self._model.addVars(coptpy.tuplelist(inst.x_iter()), vtype=coptpy.COPT.INTEGER, nameprefix="x")
+        self.y = self._model.addVars(coptpy.tuplelist(inst.x_iter()), vtype=coptpy.COPT.BINARY, nameprefix="y")
+        # self.h = self._model.addVars(range(inst.n_products), vtype=coptpy.COPT.BINARY, nameprefix="h")
 
         # целевая функция
         self._model.setObjective(
-            sum(inst.price[p] * sum(x[p, inst.first[p], t] for t in inst.big_t(p, inst.first(p)))
+            sum(inst.price[p] * sum(self.x[p, inst.first[p], t] for t in inst.big_t(p, inst.first[p]))
                 for p in range(inst.n_products)) -
 
-            sum((t + 1) * x[p, inst.first[p], t]
+            sum((t + 1) * self.x[p, inst.first[p], t]
                 for p in range(inst.n_products)
                 for t in range(inst.n_time)),
             coptpy.COPT.MAXIMIZE
         )
 
-        self._model.addConstrs(for p in range(inst.n_products) for s in range())
+        self._model.addConstrs(
+            self.x[p, s, t] <= inst.m[p, s, t] * self.y[p, s, t]
+            for p in range(inst.n_products)
+            for s in range(inst.n_machines)
+            for t in inst.big_t(p, s)
+        )
+
+        self._model.addConstrs(
+            self.x[p, s1, t] == self.x[p, inst.next[p, s1], t + inst.tc[p, s1]]
+            for p in range(inst.n_products)
+            for s1 in range(inst.n_machines)
+            for t in inst.big_t(p, s1) if inst.next[p, s1] != -1
+        )
+
+        self._model.addConstrs(
+            sum(self.y[p, s, t_] for p, t_ in inst.big_u(s, t)) <= 1
+            for s in range(inst.n_machines)
+            for t in range(
+                min(inst.big_t(p, s)[0] for p in range(inst.n_products)),
+                max(inst.big_t(p, s)[-1] for p in range(inst.n_products)) + 1
+            )
+        )
+
+        self._model.addConstrs(self.x[p, s, t] >= 0 for p, s, t in inst.x_iter())
+
+        self._model.addConstrs(
+            sum(self.x[p, inst.first[p], t] for t in inst.big_t(p, inst.first[p])) <= inst.d[p]
+            for p in range(inst.n_products)
+        )
 
 
 if __name__ == "__main__":
     logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S',
                         level=logging.DEBUG)
 
-
-    def test():
-        n_p, n_m, n_t = 2, 5, 8
+    def test1():
+        n_p, n_m, n_t = 2, 5, 12
+        temp = [50, 50, 50, 50, 100]
         inst = CehInstance(
             n_p, n_m, n_t,
-            np.array([[50, 50, 50, 50, 100] for _ in range(n_t)]),
+            np.array([[[temp[m] for _ in range(n_t)] for m in range(n_m)] for _ in range(n_p)]),
+            np.array([[1, 0, 2, 3, 4], [0, 1, 2, 3, 4]]),
+            np.array([150, 150]),
+            np.array([100, 100]),
+            np.array([13, 13]),
+            np.array([[2, 0, 2, 1, 1], [0, 2, 0, 1, 1]])
+        )
+
+        solver = CehSolver()
+        x = solver.solve(inst)
+        print(x)
+
+
+    def test2():
+        n_p, n_m, n_t = 2, 5, 8
+        temp = [50, 50, 50, 50, 100]
+        inst = CehInstance(
+            n_p, n_m, n_t,
+            np.array([[[temp[m] for _ in range(n_t)] for m in range(n_m)] for _ in range(n_p)]),
             np.array([[1, 0, 3, 4, 2], [0, 1, 0, 2, 3]]),
             np.array([150, 120]),
             np.array([100, 30]),
             np.array([9, 9]),
             np.array([[2, 0, 2, 1, 1], [0, 2, 0, 1, 1]])
         )
-        print(inst)
 
-        for p in range(inst.n_products):
-            for s in range(inst.n_machines):
-                print(p, s, inst.big_t(p, s))
-        # solver = CehSolver()
-        # x = solver.solve(inst)
-        # print(x)
+        solver = CehSolver()
+        x = solver.solve(inst)
+        print(x)
 
 
-    test()
+    def test3():
+        n_p, n_m, n_t = 4, 7, 24
+        temp = [50, 50, 50, 50, 50, 50, 100]
+        inst = CehInstance(
+            n_p, n_m, n_t,
+            np.array([[[temp[m] for _ in range(n_t)] for m in range(n_m)] for _ in range(n_p)]),
+            np.array([[1, 0, 3, 4, 2, 5, 0], [0, 1, 2, 4, 3, 5, 0], [0, 0, 0, 2, 3, 0, 1], [0, 5, 4, 2, 1, 3, 0]]),
+            np.array([150, 150, 80, 120]),
+            np.array([100, 100, 30, 80]),
+            np.array([25, 25, 25, 25]),
+            np.array([[2, 0, 2, 1, 1, 1, 0], [0, 1, 1, 1, 1, 3, 0], [0, 0, 0, 1, 1, 0, 2], [0, 1, 2, 1, 1, 1, 0]])
+        )
+
+        solver = CehSolver()
+        x = solver.solve(inst)
+        print(x)
+
+    test1()
+    test2()
+    test3()
