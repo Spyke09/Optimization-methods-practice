@@ -158,7 +158,7 @@ class GTSPSolver:
 
 
 def test_1():
-    inst = generate_GTSP_instance(4, 10)
+    inst = generate_GTSP_instance(4, 8)
     solver = GTSPSolver()
     solution = solver.solve(inst)
     trace = inst.points[solution]
